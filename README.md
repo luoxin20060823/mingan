@@ -1,23 +1,176 @@
 # Content Audit Platform
 
-A Chinese content audit platform with FastAPI, SQLite, layered audit engines, and a static web console.
+中文内容审核平台，基于 FastAPI + SQLite，提供单条审核、批量审核、历史查询和敏感词管理的静态控制台。
 
-## Run
+## 如何运行
+
+### 1. 环境要求
+
+- Python 3.12 或更高
+- Windows / macOS / Linux 均可
+- 可选：DeepSeek API Key，用于 L3 语义审核
+
+### 2. 安装依赖
 
 ```bash
 python -m pip install -e .[dev]
+```
+
+### 3. 启动服务
+
+```bash
 uvicorn audit.main:app --host 127.0.0.1 --port 8000
 ```
 
-Open `http://127.0.0.1:8000/`.
+启动后浏览器打开：
 
-On first startup, the app initializes SQLite at `./data/audit.db` and imports builtin words from `./seeds/sensitive_words.csv`.
+```text
+http://127.0.0.1:8000/
+```
 
-DeepSeek is optional for local demo. If `DEEPSEEK_API_KEY` is empty, L3 returns a degraded `l3_error` result while L1/L2/L4 continue to work.
+首页会自动跳转到静态控制台。
 
-## Verify
+### 4. 首次启动会做什么
+
+- 自动创建 SQLite 数据库：`./data/audit.db`
+- 自动创建 `audit_records` 和 `sensitive_words` 两张表
+- 自动导入内置敏感词种子：`./seeds/sensitive_words.csv`
+- 自动加载：
+  - `./seeds/homophones.json`
+  - `./seeds/glyph_confusables.json`
+  - `./seeds/regex_rules.yaml`
+
+### 5. 可选配置
+
+复制 `.env.example` 为 `.env` 后按需修改：
+
+```env
+DEEPSEEK_API_KEY=
+DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+DEEPSEEK_MODEL=deepseek-chat
+DEEPSEEK_TIMEOUT_SECONDS=5
+SQLITE_PATH=./data/audit.db
+```
+
+说明：
+
+- `DEEPSEEK_API_KEY` 为空时，L3 会降级为错误结果，但 L1/L2/L4 仍可正常工作
+- `SQLITE_PATH` 可改成其他数据库文件路径
+
+## 使用说明
+
+### 静态控制台
+
+控制台包含四个入口：
+
+- 单条审核
+- 批量审核
+- 历史记录
+- 敏感词管理
+
+### 单条审核
+
+1. 切换到“单条审核”
+2. 输入不超过 2000 字的文本
+3. 点击“提交审核”
+4. 查看：
+   - 风险等级
+   - 违规类别
+   - 置信度
+   - 命中片段
+   - 处置建议
+   - 各层耗时
+
+### 批量审核
+
+1. 切换到“批量审核”
+2. 每行输入一条文本，最多 50 条
+3. 点击“批量审核”
+4. 逐条查看结果
+
+### 历史记录
+
+支持按以下条件筛选：
+
+- 风险等级
+- 违规类别
+- 时间范围
+
+### 敏感词管理
+
+支持：
+
+- 新增自定义敏感词
+- 查看敏感词列表
+- 按类别和等级筛选
+- 删除自定义词条
+
+内置词库 `source=builtin` 不能删除。
+
+## API 快速示例
+
+### 单条审核
 
 ```bash
-python -m pytest tests/unit tests/property tests/integration -q
+curl -X POST "http://127.0.0.1:8000/audit/text" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"text\":\"示例文本\"}"
+```
+
+### 批量审核
+
+```bash
+curl -X POST "http://127.0.0.1:8000/audit/batch" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"texts\":[\"文本1\",\"文本2\"]}"
+```
+
+### 查询历史
+
+```bash
+curl "http://127.0.0.1:8000/history?page=1&page_size=20"
+```
+
+### 新增敏感词
+
+```bash
+curl -X POST "http://127.0.0.1:8000/words" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"word\":\"测试词\",\"category\":\"其他\",\"level\":\"违规\"}"
+```
+
+### 删除敏感词
+
+```bash
+curl -X DELETE "http://127.0.0.1:8000/words/123"
+```
+
+## 测试与验证
+
+```bash
+python -m pytest tests/unit tests/property tests/integration tests/perf -q
 python -m compileall -q src/audit
 ```
+
+## 常见问题
+
+### 端口被占用
+
+改成其他端口启动即可：
+
+```bash
+uvicorn audit.main:app --host 127.0.0.1 --port 8001
+```
+
+### 没有 DeepSeek Key 能不能跑
+
+可以。系统会自动降级，L1/L2/L4 继续可用。
+
+### 想重置数据库
+
+停止服务后删除 `./data/audit.db` 及相关 `-wal`、`-shm` 文件，再重新启动。
+
+### PowerShell 里中文显示异常
+
+这是终端编码显示问题，不影响服务本身。接口返回和文件内容都按 UTF-8 处理。
+
