@@ -1,0 +1,12 @@
+﻿- name: phone
+  pattern: "1[3-9]\\d{9}"
+  category: "违法广告"
+  level: "警告"
+- name: url
+  pattern: "https?://[^\\s]+"
+  category: "违法广告"
+  level: "警告"
+- name: qq
+  pattern: "QQ[:：]?\\s*\\d{5,12}"
+  category: "违法广告"
+  level: "警告"

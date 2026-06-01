@@ -1,0 +1,59 @@
+from dataclasses import dataclass
+
+from audit.pipeline.l1_rule import L1RuleEngine, compute_layer_score
+from audit.domain.enums import RiskLevel, ViolationCategory
+from audit.domain.models import HitDetail
+
+
+@dataclass
+class Word:
+    word: str
+    category: str
+    level: str
+
+
+def test_l1_empty_text_returns_zero_score():
+    result = L1RuleEngine([Word("坏词", "其他", "违规")]).scan("")
+    assert result.score == 0.0
+    assert result.hits == []
+
+
+def test_l1_hit_uses_word_metadata_and_positions():
+    result = L1RuleEngine([Word("坏词", "其他", "违规")]).scan("这是坏词")
+    assert result.score >= 0.85
+    assert result.hits[0].matched_word == "坏词"
+    assert result.hits[0].start == 2
+    assert result.hits[0].end == 4
+    assert result.hits[0].category == ViolationCategory.OTHER
+
+
+def test_compute_layer_score_respects_warning_band():
+    hit = HitDetail(
+        layer="L1",
+        engine="ahocorasick",
+        matched_word="词",
+        original_fragment="词",
+        start=0,
+        end=1,
+        category=ViolationCategory.OTHER,
+        level=RiskLevel.WARNING,
+    )
+    assert compute_layer_score([hit]) == 0.5
+
+
+def test_l1_regex_rule_detects_phone_number():
+    engine = L1RuleEngine(
+        [Word("坏词", "其他", "违规")],
+        regex_rules=[{"name": "phone", "pattern": r"1[3-9]\d{9}", "category": "违法广告", "level": "警告"}],
+    )
+
+    result = engine.scan("联系我 13800138000")
+
+    assert result.score >= 0.5
+    assert any(hit.engine == "regex:phone" and hit.matched_word == "phone" for hit in result.hits)
+
+
+def test_l1_builds_ahocorasick_automaton():
+    engine = L1RuleEngine([Word("坏词", "其他", "违规")])
+
+    assert engine.automaton is not None

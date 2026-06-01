@@ -1,0 +1,9 @@
+from audit.domain.enums import RiskLevel, ViolationCategory
+
+
+def test_risk_level_values():
+    assert [x.value for x in RiskLevel] == ["合规", "提示", "警告", "违规"]
+
+
+def test_violation_category_values():
+    assert [x.value for x in ViolationCategory] == ["涉政", "暴恐", "色情", "辱骂", "违法广告", "其他"]
