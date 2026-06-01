@@ -44,6 +44,15 @@ def test_l2_mixed_hanzi_and_pinyin_variant_scores_nine_tenths():
     assert any(hit.engine == "pinyin" for hit in result.hits)
 
 
+def test_l2_pinyin_hit_position_points_to_original_variant_fragment():
+    result = L2VariantEngine([Word("坏词", "其他", "违规")]).scan("前缀 huaici 后缀")
+    hit = next(hit for hit in result.hits if hit.engine == "pinyin")
+
+    assert hit.original_fragment == "huaici"
+    assert hit.start == 3
+    assert hit.end == 9
+
+
 def test_l2_homophone_variant_scores_nine_tenths():
     result = L2VariantEngine([Word("坏词", "其他", "违规")], homophones={"壞": "坏"}).scan("这里有壞词")
 

@@ -58,15 +58,41 @@ class L2VariantEngine:
         return hits
 
     def _pinyin_scan(self, text: str, flags: list[str]) -> list[HitDetail]:
-        compact = re.sub(r"[^A-Za-z0-9\u4e00-\u9fff]", "", text).lower()
-        mixed_compact = "".join(lazy_pinyin(compact)).lower()
+        compact_chars: list[str] = []
+        compact_index_map: list[int] = []
+        mixed_parts: list[str] = []
+        mixed_index_map: list[int] = []
+        for index, ch in enumerate(text):
+            if not re.match(r"[A-Za-z0-9\u4e00-\u9fff]", ch):
+                continue
+            compact_chars.append(ch.lower())
+            compact_index_map.append(index)
+            pinyin = lazy_pinyin(ch)[0].lower()
+            mixed_parts.append(pinyin)
+            mixed_index_map.extend([index] * len(pinyin))
+        compact = "".join(compact_chars)
+        mixed_compact = "".join(mixed_parts)
         hits: list[HitDetail] = []
         for entry in self.words:
             full = "".join(lazy_pinyin(entry.word)).lower()
             initials = "".join(p[0] for p in lazy_pinyin(entry.word)).lower()
             has_plain_word = entry.word in compact
-            if full and (full in compact or (not has_plain_word and full in mixed_compact) or initials in compact):
-                hits.append(self._hit("pinyin", entry, text, 0, min(len(text), max(1, len(entry.word))), flags))
+            if not full:
+                continue
+            for needle, haystack, index_map, allowed in (
+                (full, compact, compact_index_map, True),
+                (full, mixed_compact, mixed_index_map, not has_plain_word),
+                (initials, compact, compact_index_map, True),
+            ):
+                if not needle or not allowed:
+                    continue
+                idx = haystack.find(needle)
+                if idx < 0:
+                    continue
+                start = index_map[idx]
+                end = index_map[idx + len(needle) - 1] + 1
+                hits.append(self._hit("pinyin", entry, text, start, end, flags))
+                break
         return hits
 
     def _mapped_scan(self, text: str, mapping: dict[str, str], engine: str, flags: list[str]) -> list[HitDetail]:

@@ -126,6 +126,25 @@ def test_audit_text_rejects_blank_text_without_persisting(tmp_path, monkeypatch)
     assert client.get("/history").json()["total"] == 0
 
 
+def test_custom_word_create_delete_takes_effect_for_subsequent_audits(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+
+    created = client.post("/words", json={"word": "独有测试词", "category": "其他", "level": "违规"})
+    assert created.status_code == 201
+    word_id = created.json()["id"]
+
+    hit = client.post("/audit/text", json={"text": "这是一条独有测试词"})
+    assert hit.status_code == 200
+    assert any(item["matched_word"] == "独有测试词" for item in hit.json()["hit_details"])
+
+    deleted = client.delete(f"/words/{word_id}")
+    assert deleted.status_code == 204
+
+    missed = client.post("/audit/text", json={"text": "这是一条独有测试词"})
+    assert missed.status_code == 200
+    assert not any(item["matched_word"] == "独有测试词" for item in missed.json()["hit_details"])
+
+
 def test_audit_text_uses_regex_and_variant_seed_resources(tmp_path, monkeypatch):
     seed_path = tmp_path / "sensitive_words.csv"
     seed_path.write_text(
