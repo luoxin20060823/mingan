@@ -59,10 +59,10 @@ def test_history_rejects_invalid_enum_and_pagination_values(tmp_path, monkeypatc
 def test_words_reject_invalid_filters_and_trim_blank_word(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
 
-    assert client.get("/words", params={"category": "非法"}).status_code == 400
-    assert client.get("/words", params={"level": "非法"}).status_code == 400
-    assert client.get("/words", params={"page": 0}).status_code == 400
-    assert client.get("/words", params={"page_size": 101}).status_code == 400
+    assert client.get("/words", params={"category": "非法"}).json()["error"]["message"] == "invalid category"
+    assert client.get("/words", params={"level": "非法"}).json()["error"]["message"] == "invalid level"
+    assert client.get("/words", params={"page": 0}).json()["error"]["message"] == "invalid pagination"
+    assert client.get("/words", params={"page_size": 101}).json()["error"]["message"] == "invalid pagination"
     assert client.post("/words", json={"word": "   ", "category": "其他", "level": "违规"}).status_code == 400
 
 
@@ -74,6 +74,7 @@ def test_words_delete_rejects_builtin_entries(tmp_path, monkeypatch):
     deleted = client.delete(f"/words/{builtin_id}")
 
     assert deleted.status_code == 400
+    assert deleted.json()["error"]["message"] == "builtin words cannot be deleted"
     assert client.get("/words?page_size=1").json()["total"] == listed["total"]
 
 
@@ -123,6 +124,7 @@ def test_audit_text_rejects_blank_text_without_persisting(tmp_path, monkeypatch)
     response = client.post("/audit/text", json={"text": "   "})
 
     assert response.status_code == 400
+    assert "error" in response.json()
     assert client.get("/history").json()["total"] == 0
 
 
