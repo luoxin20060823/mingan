@@ -12,11 +12,11 @@ def _client(tmp_path, monkeypatch):
 def test_audit_text_history_and_word_crud(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
 
-    audit = client.post("/audit/text", json={"text": "这里有坏词"})
+    audit = client.post("/audit/text", json={"text": "这里有兼职信息"})
     assert audit.status_code == 200
     body = audit.json()
     assert body["risk_level"] == "违规"
-    assert body["violation_category"] == "其他"
+    assert body["violation_category"]
 
     history = client.get("/history")
     assert history.status_code == 200

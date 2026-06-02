@@ -49,6 +49,18 @@ class WordRepository:
             ).fetchone()
         return WordEntry(**dict(row))
 
+    def replace_words_by_source(self, source: str, rows: list[tuple[str, str, str]]) -> int:
+        created_at = datetime.now(timezone.utc).isoformat()
+        with self.db.connect() as conn:
+            conn.execute("BEGIN")
+            conn.execute("DELETE FROM sensitive_words WHERE source = ?", (source,))
+            conn.executemany(
+                "INSERT INTO sensitive_words(word, category, level, source, created_at) VALUES (?, ?, ?, ?, ?)",
+                [(word, category, level, source, created_at) for word, category, level in rows],
+            )
+            conn.commit()
+        return len(rows)
+
     def delete_word(self, word_id: int) -> bool:
         with self.db.connect() as conn:
             cur = conn.execute("DELETE FROM sensitive_words WHERE id = ?", (word_id,))

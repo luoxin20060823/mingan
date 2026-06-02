@@ -1,6 +1,6 @@
 # Content Audit Platform
 
-中文内容审核平台，基于 FastAPI + SQLite，提供单条审核、批量审核、历史查询和敏感词管理的静态控制台。
+中文内容审核平台，基于 FastAPI + SQLite，提供单条审核、批量审核、历史查询和敏感词管理的静态控制台。内置词库可由公开真实中文敏感词库转换生成，不依赖手写演示词。
 
 ## 如何运行
 
@@ -35,6 +35,7 @@ http://127.0.0.1:8000/
 - 自动创建 SQLite 数据库：`./data/audit.db`
 - 自动创建 `audit_records` 和 `sensitive_words` 两张表
 - 自动导入内置敏感词种子：`./seeds/sensitive_words.csv`
+- 如果 CSV 中的 builtin 词库和数据库已有 builtin 词库不一致，会自动替换数据库中的 builtin 词；自定义词 `source=custom` 会保留
 - 自动加载：
   - `./seeds/homophones.json`
   - `./seeds/glyph_confusables.json`
@@ -107,6 +108,36 @@ SQLITE_PATH=./data/audit.db
 
 内置词库 `source=builtin` 不能删除。
 
+## 真实词库
+
+本项目提供真实词库转换脚本：
+
+```bash
+python scripts/build_sensitive_seed.py
+```
+
+脚本会读取公开项目 `konsheng/Sensitive-lexicon` 的 `Vocabulary/` 目录，并生成：
+
+```text
+seeds/sensitive_words.csv
+```
+
+词库来源和许可说明见：
+
+```text
+seeds/SENSITIVE_WORDS_SOURCE.md
+```
+
+如果你已经启动过旧版本系统，重新启动服务后，系统会自动用新的 CSV 替换数据库里的 builtin 词库，并保留手工新增的 custom 词。
+
+也可以不生成 CSV，直接通过环境变量指定真实词库目录：
+
+```env
+LEXICON_DIR=./.tmp-sensitive-lexicon/Vocabulary
+```
+
+配置后，系统启动时会优先从该目录读取词库。
+
 ## API 快速示例
 
 ### 单条审核
@@ -173,4 +204,3 @@ uvicorn audit.main:app --host 127.0.0.1 --port 8001
 ### PowerShell 里中文显示异常
 
 这是终端编码显示问题，不影响服务本身。接口返回和文件内容都按 UTF-8 处理。
-

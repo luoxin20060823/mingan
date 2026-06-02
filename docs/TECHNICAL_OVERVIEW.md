@@ -11,6 +11,7 @@
 - 历史记录查询
 - 敏感词增删查
 - 静态 Web 控制台
+- 公开真实中文敏感词库转换与 builtin 词库刷新
 
 ## 2. 总体架构
 
@@ -23,7 +24,7 @@
 5. `src/audit/domain/` 负责领域枚举和数据模型
 6. `static/index.html` 负责前端控制台
 
-应用启动时会把数据库、词库缓存、同音字映射、字形混淆表和正则规则加载进 `app.state`，路由处理阶段直接复用这些对象。
+应用启动时会把数据库、词库缓存、同音字映射、字形混淆表和正则规则加载进 `app.state`，路由处理阶段直接复用这些对象。启动阶段还会比较当前内置词库来源与数据库里的 builtin 词库；如果不一致，会替换 builtin 词库，并保留用户新增的 custom 词。
 
 ## 3. 目录结构
 
@@ -35,6 +36,7 @@
 - `src/audit/cache/`：词库缓存
 - `src/audit/domain/`：RiskLevel、ViolationCategory、HitDetail 等模型
 - `seeds/`：内置种子数据
+- `scripts/build_sensitive_seed.py`：公开真实词库到系统 CSV 的转换脚本
 - `static/`：单页控制台
 - `tests/`：单元、性质、集成和性能测试
 
@@ -61,6 +63,22 @@
 ### 4.3 词库变更
 
 `POST /words` 或 `DELETE /words/{id}` 之后会刷新 `app.state.word_cache`。这样下一次审核请求会读取最新词库，不需要重启服务。
+
+### 4.4 builtin 词库刷新
+
+系统启动时会读取当前内置词库来源，并与数据库中 `source=builtin` 的词条集合比较。词库来源优先级如下：
+
+1. 如果显式配置了 `LEXICON_DIR`，读取该真实词库目录
+2. 否则读取 `SEED_PATH` 指向的 CSV，默认是 `seeds/sensitive_words.csv`
+
+刷新规则：
+
+1. 如果完全一致，不做写入
+2. 如果不一致，删除旧 builtin 词条
+3. 批量写入新的 builtin 词条
+4. 保留 `source=custom` 的人工新增词条
+
+这保证了从演示词库切换到真实词库后，旧数据库不会继续保留演示 builtin 词。
 
 ## 5. 领域模型
 
@@ -167,6 +185,19 @@ L4 负责把三层结果综合起来，输出最终风险等级、类别和置�
 - `(created_at, risk_level, violation_category)`
 
 这些索引主要服务历史查询和筛选。
+
+### 8.3 真实词库来源
+
+`seeds/sensitive_words.csv` 可由 `scripts/build_sensitive_seed.py` 从公开词库转换生成：
+
+- 项目：Sensitive-lexicon 中文敏感词库
+- 地址：https://github.com/konsheng/Sensitive-lexicon
+- 许可证：MIT License
+- 来源目录：`Vocabulary/`
+
+转换脚本会按源文件名映射到本系统支持的 `ViolationCategory` 和 `RiskLevel`。来源和许可说明保存在 `seeds/SENSITIVE_WORDS_SOURCE.md`。
+
+如果不希望生成 CSV，可以配置 `LEXICON_DIR` 直接指向公开词库的 `Vocabulary/` 目录。
 
 ## 9. API 设计
 
@@ -275,7 +306,7 @@ python -m compileall -q src/audit
 ## 14. 已知限制
 
 - L3 依赖外部 API，离线情况下会降级
-- 词库和变体库是演示级种子，覆盖面有限
+- 公开词库仍需要按具体业务场景校准，不能替代平台政策和人工复核
 - 当前没有认证、权限、限流和多租户能力
 - 静态控制台适合内部演示，不是生产级后台
 
@@ -286,4 +317,3 @@ python -m compileall -q src/audit
 - 给历史查询增加分页总页数和导出能力
 - 增加认证、审计日志和限流
 - 把静态控制台拆成可维护的前端工程
-

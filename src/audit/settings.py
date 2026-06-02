@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     deepseek_timeout_seconds: int = 5
     sqlite_path: str = "./data/audit.db"
     seed_path: str = "./seeds/sensitive_words.csv"
+    lexicon_dir: str = ""
     homophone_path: str = "./seeds/homophones.json"
     glyph_path: str = "./seeds/glyph_confusables.json"
     regex_rules_path: str = "./seeds/regex_rules.yaml"
