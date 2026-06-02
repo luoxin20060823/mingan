@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
+import re
 
 from ..domain.enums import RiskLevel, ViolationCategory
 from ..domain.models import DisposalSuggestion, HitDetail, ProcessingTime
@@ -70,6 +71,42 @@ class WordResponse(BaseModel):
     category: str
     level: str
     source: str
+    created_at: str
+
+
+class RegexRuleCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    pattern: str = Field(min_length=1, max_length=500)
+    category: ViolationCategory
+    level: RiskLevel
+    enabled: bool = True
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("name must not be blank")
+        return stripped
+
+    @field_validator("pattern")
+    @classmethod
+    def validate_pattern(cls, value: str) -> str:
+        try:
+            re.compile(value)
+        except re.error as exc:
+            raise ValueError(f"invalid regex pattern: {exc}") from exc
+        return value
+
+
+class RegexRuleResponse(BaseModel):
+    id: int
+    name: str
+    pattern: str
+    category: str
+    level: str
+    source: str
+    enabled: bool
     created_at: str
 
 

@@ -112,6 +112,16 @@ SQLITE_PATH=./data/audit.db
 
 内置词库 `source=builtin` 不能删除。
 
+### 规则管理
+
+后端提供正则规则管理 API：
+
+- `GET /rules`
+- `POST /rules`
+- `DELETE /rules/{rule_id}`
+
+启动时会把 `seeds/regex_rules.yaml` 导入为 `source=builtin` 规则；内置规则不能删除。通过 API 新增的 `source=custom` 规则会立即参与后续审核。
+
 ## 真实词库
 
 本项目提供真实词库转换脚本：
@@ -180,6 +190,14 @@ curl -X POST "http://127.0.0.1:8000/words" ^
 
 ```bash
 curl -X DELETE "http://127.0.0.1:8000/words/123"
+```
+
+### 新增正则规则
+
+```bash
+curl -X POST "http://127.0.0.1:8000/rules" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"name\":\"wechat_id\",\"pattern\":\"VX[:：]?[A-Za-z0-9_]{5,}\",\"category\":\"引流\",\"level\":\"警告\"}"
 ```
 
 ## 测试与验证

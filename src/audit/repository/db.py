@@ -36,6 +36,18 @@ CREATE TABLE IF NOT EXISTS sensitive_words (
     UNIQUE(word, source)
 );
 
+CREATE TABLE IF NOT EXISTS regex_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    pattern TEXT NOT NULL,
+    category TEXT NOT NULL,
+    level TEXT NOT NULL,
+    source TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    UNIQUE(name, source)
+);
+
 CREATE INDEX IF NOT EXISTS idx_audit_records_created_at
     ON audit_records(created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_records_risk_level
@@ -44,6 +56,8 @@ CREATE INDEX IF NOT EXISTS idx_audit_records_category
     ON audit_records(violation_category);
 CREATE INDEX IF NOT EXISTS idx_audit_records_created_risk_category
     ON audit_records(created_at, risk_level, violation_category);
+CREATE INDEX IF NOT EXISTS idx_regex_rules_enabled
+    ON regex_rules(enabled);
 """
 
 

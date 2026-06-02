@@ -25,3 +25,17 @@ def test_sensitive_words_schema_has_unique_word_source_constraint(tmp_path):
         ]
 
     assert ["word", "source"] in unique_columns
+
+
+def test_regex_rules_schema_has_unique_name_source_constraint(tmp_path):
+    db = Database(str(tmp_path / "audit.db"))
+
+    with db.connect() as conn:
+        indexes = conn.execute("PRAGMA index_list('regex_rules')").fetchall()
+        unique_indexes = [row["name"] for row in indexes if row["unique"]]
+        unique_columns = [
+            [column["name"] for column in conn.execute(f"PRAGMA index_info('{index_name}')").fetchall()]
+            for index_name in unique_indexes
+        ]
+
+    assert ["name", "source"] in unique_columns
