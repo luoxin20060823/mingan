@@ -189,6 +189,14 @@ python -m pytest tests/unit tests/property tests/integration tests/perf -q
 python -m compileall -q src/audit
 ```
 
+典型审核样例集位于：
+
+```text
+tests/fixtures/moderation_cases.jsonl
+```
+
+样例覆盖正常文本、误伤文本、诈骗、引流、未成年人风险、符号变体和同音变体。每次策略调整后都应运行完整测试，避免审核能力退化。
+
 ## 常见问题
 
 ### 端口被占用

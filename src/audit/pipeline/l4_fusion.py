@@ -5,7 +5,7 @@ from ..domain.models import FinalDecision, L3Result, LayerResult
 
 SPECIFIC_CATEGORY_PRIORITY = {
     ViolationCategory.MINOR_SAFETY.value: 90,
-    ViolationCategory.FRAUD.value: 80,
+    ViolationCategory.FRAUD.value: 85,
     ViolationCategory.TRAFFIC_DIVERSION.value: 75,
     ViolationCategory.TERROR.value: 70,
     ViolationCategory.PORN.value: 65,

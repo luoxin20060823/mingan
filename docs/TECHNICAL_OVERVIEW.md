@@ -150,6 +150,8 @@ L4 负责把三层结果综合起来，输出最终风险等级、类别和置�
 
 它的目标是把审核结果转换为可执行操作，而不是只给一个抽象分级。
 
+`operation_note` 会包含前几条可解释命中，格式包括层级、引擎、类别、等级、命中词和 flags，例如 `L1/ahocorasick/违法广告/提示:招聘, flags=low_confidence_generic`。这让人工复核能快速判断风险来自规则命中、变体识别、LLM 降级还是低置信泛词。
+
 ## 8. SQLite 设计
 
 ### 8.1 表结构
@@ -303,6 +305,7 @@ L4 负责把三层结果综合起来，输出最终风险等级、类别和置�
 - `tests/property`：性质测试，验证不变量
 - `tests/integration`：接口、启动和静态页面
 - `tests/perf`：性能基线
+- `tests/fixtures/moderation_cases.jsonl`：典型审核样例集，覆盖正常、违规、变体、边界和误伤场景
 
 推荐的完整验证命令：
 

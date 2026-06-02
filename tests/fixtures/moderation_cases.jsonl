@@ -1,0 +1,6 @@
+{"id":"normal_recruitment","text":"我们正在招聘后端工程师，欢迎投递简历。","max_risk":"提示","expected_action":"pass","must_have_flag":"low_confidence_generic"}
+{"id":"fraud_part_time","text":"兼职刷单返利稳赚，先垫付后提现。","min_risk":"违规","expected_category":"诈骗","expected_action_any":["delete","block"],"custom_words":[{"word":"刷单返利","category":"诈骗","level":"违规"}]}
+{"id":"traffic_diversion","text":"想了解更多请加微信私聊。","min_risk":"警告","expected_category":"引流","expected_action_any":["fold","delete","block"],"custom_words":[{"word":"加微信私聊","category":"引流","level":"警告"}]}
+{"id":"minor_safety","text":"传播未成年裸聊内容。","min_risk":"违规","expected_category":"未成年人风险","expected_action_any":["delete","block"],"custom_words":[{"word":"未成年裸聊","category":"未成年人风险","level":"违规"}]}
+{"id":"symbol_variant","text":"刷-单-返-利","min_risk":"警告","must_have_engine":"symbol","custom_words":[{"word":"刷单返利","category":"诈骗","level":"违规"}]}
+{"id":"homophone_variant","text":"这里有壞词","min_risk":"警告","must_have_engine":"homophone","custom_words":[{"word":"坏词","category":"其他","level":"违规"}]}
