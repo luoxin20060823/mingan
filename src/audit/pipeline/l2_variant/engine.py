@@ -38,11 +38,15 @@ class L2VariantEngine:
     def _strip_and_scan(self, text: str, pattern: str, engine: str, flags: list[str]) -> list[HitDetail]:
         chars: list[str] = []
         index_map: list[int] = []
+        removed = False
         for i, ch in enumerate(text):
             if re.match(pattern, ch):
+                removed = True
                 continue
             chars.append(ch)
             index_map.append(i)
+        if not removed:
+            return []
         normalized = "".join(chars)
         hits: list[HitDetail] = []
         for entry in self.words:
@@ -51,10 +55,10 @@ class L2VariantEngine:
                 idx = normalized.find(entry.word, search_from)
                 if idx < 0:
                     break
-                if normalized != text:
-                    hits.append(
-                        self._hit(engine, entry, text, index_map[idx], index_map[idx + len(entry.word) - 1] + 1, flags)
-                    )
+                start = index_map[idx]
+                end = index_map[idx + len(entry.word) - 1] + 1
+                if text[start:end] != entry.word:
+                    hits.append(self._hit(engine, entry, text, start, end, flags))
                 search_from = idx + len(entry.word)
         return hits
 
@@ -75,15 +79,19 @@ class L2VariantEngine:
         mixed_compact = "".join(mixed_parts)
         hits: list[HitDetail] = []
         for entry in self.words:
+            if len(entry.word) < 2:
+                continue
+            if not re.search(r"[\u4e00-\u9fff]", entry.word):
+                continue
             full = "".join(lazy_pinyin(entry.word)).lower()
             initials = "".join(p[0] for p in lazy_pinyin(entry.word)).lower()
             has_plain_word = entry.word in compact
-            if not full:
+            if len(full) < 4:
                 continue
             for needle, haystack, index_map, allowed in (
                 (full, compact, compact_index_map, True),
                 (full, mixed_compact, mixed_index_map, not has_plain_word),
-                (initials, compact, compact_index_map, True),
+                (initials, compact, compact_index_map, len(initials) >= 3),
             ):
                 if not needle or not allowed:
                     continue

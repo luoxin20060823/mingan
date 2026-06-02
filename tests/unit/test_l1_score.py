@@ -59,6 +59,22 @@ def test_l1_normalizes_traffic_diversion_category():
     assert any(hit.category.value == "引流" for hit in result.hits)
 
 
+def test_l1_downgrades_generic_term_without_risk_context():
+    result = L1RuleEngine([Word("招聘", "违法广告", "违规")]).scan("我们正在招聘后端工程师")
+
+    assert result.score == 0.2
+    assert result.hits[0].level == RiskLevel.HINT
+    assert "low_confidence_generic" in result.hits[0].flags
+
+
+def test_l1_keeps_generic_term_high_risk_with_context():
+    result = L1RuleEngine([Word("兼职", "违法广告", "违规")]).scan("兼职刷单返利稳赚")
+
+    assert result.score >= 0.85
+    assert result.hits[0].level == RiskLevel.VIOLATION
+    assert "generic_with_risk_context" in result.hits[0].flags
+
+
 def test_l1_builds_ahocorasick_automaton():
     engine = L1RuleEngine([Word("坏词", "其他", "违规")])
 

@@ -8,6 +8,7 @@ import ahocorasick
 from ..domain.enums import RiskLevel, ViolationCategory
 from ..domain.models import HitDetail, LayerResult
 from ..policy.category_rules import normalize_category
+from ..policy.false_positive import adjust_hit_confidence
 
 
 LEVEL_ORDER = {
@@ -45,6 +46,8 @@ class L1RuleEngine:
         for end_idx, entry in self.automaton.iter(text):
             word = entry.word
             start_idx = end_idx - len(word) + 1
+            category = ViolationCategory(normalize_category(word, entry.category))
+            level, flags = adjust_hit_confidence(word, category, RiskLevel(entry.level), text)
             hits.append(
                 HitDetail(
                     layer="L1",
@@ -53,8 +56,9 @@ class L1RuleEngine:
                     original_fragment=text[start_idx : end_idx + 1],
                     start=start_idx,
                     end=end_idx + 1,
-                    category=ViolationCategory(normalize_category(word, entry.category)),
-                    level=RiskLevel(entry.level),
+                    category=category,
+                    level=level,
+                    flags=flags,
                 )
             )
         for rule in self.regex_rules:
