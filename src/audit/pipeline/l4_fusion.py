@@ -3,6 +3,20 @@ from __future__ import annotations
 from ..domain.enums import RiskLevel, ViolationCategory
 from ..domain.models import FinalDecision, L3Result, LayerResult
 
+SPECIFIC_CATEGORY_PRIORITY = {
+    ViolationCategory.MINOR_SAFETY.value: 90,
+    ViolationCategory.FRAUD.value: 80,
+    ViolationCategory.TRAFFIC_DIVERSION.value: 75,
+    ViolationCategory.TERROR.value: 70,
+    ViolationCategory.PORN.value: 65,
+    ViolationCategory.POLITICS.value: 60,
+    ViolationCategory.ILLEGAL_AD.value: 50,
+    ViolationCategory.ABUSE.value: 45,
+    ViolationCategory.VULGAR.value: 40,
+    ViolationCategory.OTHER.value: 0,
+    "": -1,
+}
+
 
 def fuse(l1: LayerResult, l2: LayerResult, l3: L3Result) -> FinalDecision:
     max_score = max(l1.score, l2.score, l3.score)
@@ -46,11 +60,26 @@ def _risk_from_score(score: float) -> RiskLevel:
 
 def _winning_category(l1: LayerResult, l2: LayerResult, l3: L3Result) -> str:
     candidates = [
-        (l3.score, _category_from_l3(l3)),
-        (l2.score, _category_from_hits(l2)),
-        (l1.score, _category_from_hits(l1)),
+        *_categories_from_result(l3.score, l3.hits, _category_from_l3(l3)),
+        *_categories_from_result(l2.score, l2.hits),
+        *_categories_from_result(l1.score, l1.hits),
     ]
-    return max(candidates, key=lambda item: item[0])[1] or ViolationCategory.OTHER.value
+    best = max(candidates, key=lambda item: (item[0], item[2]))
+    if best[1] == ViolationCategory.OTHER.value:
+        specific_candidates = [item for item in candidates if item[2] > SPECIFIC_CATEGORY_PRIORITY[ViolationCategory.OTHER.value]]
+        if specific_candidates:
+            return max(specific_candidates, key=lambda item: (item[2], item[0]))[1]
+    return best[1] or ViolationCategory.OTHER.value
+
+
+def _categories_from_result(
+    score: float, hits, preferred_category: str = ""
+) -> list[tuple[float, str, int]]:
+    categories = [preferred_category] if preferred_category else []
+    categories.extend(hit.category.value for hit in hits)
+    if not categories:
+        return [(score, "", -1)]
+    return [(score, category, SPECIFIC_CATEGORY_PRIORITY.get(category, 0)) for category in categories]
 
 
 def _category_from_l3(l3: L3Result) -> str:

@@ -6,4 +6,15 @@ def test_risk_level_values():
 
 
 def test_violation_category_values():
-    assert [x.value for x in ViolationCategory] == ["涉政", "暴恐", "色情", "辱骂", "违法广告", "其他"]
+    assert [x.value for x in ViolationCategory] == [
+        "涉政",
+        "暴恐",
+        "色情",
+        "辱骂",
+        "违法广告",
+        "诈骗",
+        "引流",
+        "未成年人风险",
+        "低俗",
+        "其他",
+    ]

@@ -7,6 +7,7 @@ import ahocorasick
 
 from ..domain.enums import RiskLevel, ViolationCategory
 from ..domain.models import HitDetail, LayerResult
+from ..policy.category_rules import normalize_category
 
 
 LEVEL_ORDER = {
@@ -52,7 +53,7 @@ class L1RuleEngine:
                     original_fragment=text[start_idx : end_idx + 1],
                     start=start_idx,
                     end=end_idx + 1,
-                    category=ViolationCategory(entry.category),
+                    category=ViolationCategory(normalize_category(word, entry.category)),
                     level=RiskLevel(entry.level),
                 )
             )
@@ -66,7 +67,7 @@ class L1RuleEngine:
                         original_fragment=match.group(0),
                         start=match.start(),
                         end=match.end(),
-                        category=rule["category"],
+                        category=ViolationCategory(normalize_category(match.group(0), rule["category"].value)),
                         level=rule["level"],
                     )
                 )

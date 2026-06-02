@@ -34,3 +34,19 @@ def test_l4_l3_error_limits_confidence_and_marks_unavailable():
     )
     assert decision.confidence_score <= 0.7
     assert decision.l3_available is False
+
+
+def test_l4_prefers_specific_category_over_other_at_same_score():
+    decision = fuse(
+        LayerResult(
+            score=0.5,
+            hits=[
+                _hit("L1", ViolationCategory.OTHER, RiskLevel.WARNING),
+                _hit("L1", ViolationCategory.TRAFFIC_DIVERSION, RiskLevel.WARNING),
+            ],
+            elapsed_ms=1,
+        ),
+        LayerResult(score=0.0, hits=[], elapsed_ms=1),
+        L3Result(score=0.0, hits=[], elapsed_ms=1),
+    )
+    assert decision.category == "引流"

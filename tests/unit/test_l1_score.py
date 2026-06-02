@@ -53,6 +53,12 @@ def test_l1_regex_rule_detects_phone_number():
     assert any(hit.engine == "regex:phone" and hit.matched_word == "phone" for hit in result.hits)
 
 
+def test_l1_normalizes_traffic_diversion_category():
+    result = L1RuleEngine([Word("加微信私聊", "其他", "警告")]).scan("想了解更多请加微信私聊")
+
+    assert any(hit.category.value == "引流" for hit in result.hits)
+
+
 def test_l1_builds_ahocorasick_automaton():
     engine = L1RuleEngine([Word("坏词", "其他", "违规")])
 

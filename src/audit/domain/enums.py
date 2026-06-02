@@ -14,6 +14,10 @@ class ViolationCategory(str, Enum):
     PORN = "色情"
     ABUSE = "辱骂"
     ILLEGAL_AD = "违法广告"
+    FRAUD = "诈骗"
+    TRAFFIC_DIVERSION = "引流"
+    MINOR_SAFETY = "未成年人风险"
+    VULGAR = "低俗"
     OTHER = "其他"
 
 

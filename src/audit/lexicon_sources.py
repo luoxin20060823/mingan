@@ -4,6 +4,7 @@ import csv
 from pathlib import Path
 
 from .domain.enums import RiskLevel, ViolationCategory
+from .policy.category_rules import normalize_category
 
 
 VOCABULARY_FILE_MAP: dict[str, tuple[str, str]] = {
@@ -65,6 +66,7 @@ def _load_public_vocabulary_dir(source_dir: Path) -> list[tuple[str, str, str]]:
 
 
 def _validated_row(word: str, category: str, level: str) -> tuple[str, str, str]:
+    category = normalize_category(word, category)
     try:
         ViolationCategory(category)
         RiskLevel(level)

@@ -7,6 +7,7 @@ from pypinyin import lazy_pinyin
 
 from ...domain.enums import RiskLevel, ViolationCategory
 from ...domain.models import HitDetail, LayerResult
+from ...policy.category_rules import normalize_category
 
 
 class L2VariantEngine:
@@ -122,7 +123,7 @@ class L2VariantEngine:
             original_fragment=text[start:end],
             start=start,
             end=end,
-            category=ViolationCategory(entry.category),
+            category=ViolationCategory(normalize_category(entry.word, entry.category)),
             level=RiskLevel(entry.level),
             flags=list(flags),
         )
