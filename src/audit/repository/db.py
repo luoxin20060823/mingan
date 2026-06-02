@@ -48,6 +48,12 @@ CREATE TABLE IF NOT EXISTS regex_rules (
     UNIQUE(name, source)
 );
 
+CREATE TABLE IF NOT EXISTS policy_settings (
+    key TEXT PRIMARY KEY,
+    value_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_audit_records_created_at
     ON audit_records(created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_records_risk_level

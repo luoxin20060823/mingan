@@ -8,11 +8,13 @@ from fastapi.staticfiles import StaticFiles
 from .api.audit_routes import router as audit_router
 from .api.errors import install_error_handlers
 from .api.history_routes import router as history_router
+from .api.policy_routes import router as policy_router
 from .api.rule_routes import router as rule_router
 from .api.word_routes import router as word_router
 from .cache.word_cache import WordLibraryCache
 from .lexicon_sources import load_builtin_seed
 from .repository.db import Database
+from .repository.policy_repo import PolicySettingsRepository
 from .repository.rule_repo import RegexRuleRepository
 from .repository.word_repo import WordRepository
 from .settings import Settings
@@ -102,6 +104,7 @@ def create_app() -> FastAPI:
     settings = Settings()
     app.state.settings = settings
     app.state.db = Database(settings.sqlite_path)
+    PolicySettingsRepository(app.state.db).ensure_default_policy()
     _bootstrap_builtin_words(WordRepository(app.state.db), settings.seed_path, settings.lexicon_dir)
     _bootstrap_builtin_regex_rules(RegexRuleRepository(app.state.db), settings.regex_rules_path)
     app.state.word_cache = WordLibraryCache(WordRepository(app.state.db))
@@ -111,6 +114,7 @@ def create_app() -> FastAPI:
     app.include_router(audit_router)
     app.include_router(word_router)
     app.include_router(rule_router)
+    app.include_router(policy_router)
     app.include_router(history_router)
     install_error_handlers(app)
 

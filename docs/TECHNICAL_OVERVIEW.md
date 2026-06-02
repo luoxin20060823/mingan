@@ -20,11 +20,11 @@
 1. `src/audit/main.py` 负责应用装配、启动初始化和静态资源挂载
 2. `src/audit/api/` 负责 HTTP 接口、参数校验和错误响应
 3. `src/audit/pipeline/` 负责审核流水线
-4. `src/audit/repository/` 负责 SQLite 持久化，包括审核记录、敏感词和正则规则
+4. `src/audit/repository/` 负责 SQLite 持久化，包括审核记录、敏感词、正则规则和策略配置
 5. `src/audit/domain/` 负责领域枚举和数据模型
 6. `static/index.html` 负责前端控制台
 
-应用启动时会把数据库、词库缓存、同音字映射、字形混淆表和正则规则加载进 `app.state`，路由处理阶段直接复用这些对象。启动阶段还会比较当前内置词库来源与数据库里的 builtin 词库；如果不一致，会替换 builtin 词库，并保留用户新增的 custom 词。正则规则会从 `seeds/regex_rules.yaml` 导入到 SQLite，后续自定义规则可通过 API 管理。
+应用启动时会把数据库、词库缓存、同音字映射、字形混淆表和正则规则加载进 `app.state`，路由处理阶段直接复用这些对象。启动阶段还会比较当前内置词库来源与数据库里的 builtin 词库；如果不一致，会替换 builtin 词库，并保留用户新增的 custom 词。正则规则会从 `seeds/regex_rules.yaml` 导入到 SQLite，后续自定义规则可通过 API 管理。策略配置会写入 SQLite，后续审核请求会读取最新策略。
 
 ## 3. 目录结构
 
@@ -68,7 +68,11 @@
 
 `POST /rules` 或 `DELETE /rules/{id}` 之后，后续审核请求会从 SQLite 读取最新启用规则。规则用于 L1 正则扫描，适合维护手机号、URL、联系方式、邀请码等模式型风险。
 
-### 4.5 builtin 词库刷新
+### 4.5 策略变更
+
+`PUT /policy` 会更新风险阈值和高风险类别。后续审核请求会使用最新策略执行 L4 风险融合和处置建议生成。
+
+### 4.6 builtin 词库刷新
 
 系统启动时会读取当前内置词库来源，并与数据库中 `source=builtin` 的词条集合比较。词库来源优先级如下：
 
@@ -199,6 +203,16 @@ L4 负责把三层结果综合起来，输出最终风险等级、类别和置�
 
 规则有唯一约束 `UNIQUE(name, source)`。启动时会从 `seeds/regex_rules.yaml` 导入 builtin 规则，API 新增的是 custom 规则。
 
+#### `policy_settings`
+
+存储审核策略配置：
+
+- 配置键
+- JSON 配置值
+- 更新时间
+
+当前默认键为 `moderation_policy`，配置内容包括风险阈值和高风险类别。
+
 ### 8.2 索引
 
 当前建立了这些索引：
@@ -267,6 +281,13 @@ L4 负责把三层结果综合起来，输出最终风险等级、类别和置�
 - `DELETE /rules/{rule_id}`
 
 创建规则时会验证正则表达式能正常编译。删除时会拒绝内置规则 `source=builtin`。
+
+### 9.5 策略接口
+
+- `GET /policy`
+- `PUT /policy`
+
+策略接口支持调整风险阈值和高风险类别。阈值必须满足 `hint < warning < violation`。
 
 ## 10. 错误处理
 

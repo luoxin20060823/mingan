@@ -1,5 +1,6 @@
 from audit.domain.enums import RiskLevel, ViolationCategory
 from audit.domain.models import HitDetail, L3Result, LayerResult
+from audit.policy.settings import PolicySettings, RiskThresholds
 from audit.pipeline.l4_fusion import fuse
 
 
@@ -50,3 +51,13 @@ def test_l4_prefers_specific_category_over_other_at_same_score():
         L3Result(score=0.0, hits=[], elapsed_ms=1),
     )
     assert decision.category == "引流"
+
+
+def test_l4_uses_configured_risk_thresholds():
+    decision = fuse(
+        LayerResult(score=0.75, hits=[_hit("L1", ViolationCategory.OTHER, RiskLevel.WARNING)], elapsed_ms=1),
+        LayerResult(score=0.0, hits=[], elapsed_ms=1),
+        L3Result(score=0.0, hits=[], elapsed_ms=1),
+        PolicySettings(risk_thresholds=RiskThresholds(hint=0.1, warning=0.4, violation=0.7)),
+    )
+    assert decision.risk_level == RiskLevel.VIOLATION

@@ -3,6 +3,7 @@ import re
 
 from ..domain.enums import RiskLevel, ViolationCategory
 from ..domain.models import DisposalSuggestion, HitDetail, ProcessingTime
+from ..policy.settings import RiskThresholds
 
 
 class AuditTextRequest(BaseModel):
@@ -108,6 +109,22 @@ class RegexRuleResponse(BaseModel):
     source: str
     enabled: bool
     created_at: str
+
+
+class PolicySettingsRequest(BaseModel):
+    risk_thresholds: RiskThresholds
+    high_risk_categories: list[ViolationCategory]
+
+    @field_validator("high_risk_categories")
+    @classmethod
+    def validate_high_risk_categories(cls, value: list[ViolationCategory]):
+        if not value:
+            raise ValueError("high_risk_categories must not be empty")
+        return value
+
+
+class PolicySettingsResponse(PolicySettingsRequest):
+    pass
 
 
 class PageResponse(BaseModel):

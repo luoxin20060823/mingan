@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from ..domain.enums import RiskLevel, ViolationCategory
 from ..domain.models import FinalDecision, L3Result, LayerResult
+from ..policy.settings import PolicySettings
 
 SPECIFIC_CATEGORY_PRIORITY = {
     ViolationCategory.MINOR_SAFETY.value: 90,
@@ -18,9 +19,10 @@ SPECIFIC_CATEGORY_PRIORITY = {
 }
 
 
-def fuse(l1: LayerResult, l2: LayerResult, l3: L3Result) -> FinalDecision:
+def fuse(l1: LayerResult, l2: LayerResult, l3: L3Result, policy: PolicySettings | None = None) -> FinalDecision:
+    policy = policy or PolicySettings()
     max_score = max(l1.score, l2.score, l3.score)
-    risk = _risk_from_score(max_score)
+    risk = _risk_from_score(max_score, policy)
     category = "" if risk == RiskLevel.COMPLIANT else _winning_category(l1, l2, l3)
     l1_available = l1.elapsed_ms >= 0
     l2_available = l2.elapsed_ms >= 0
@@ -48,12 +50,14 @@ def fuse(l1: LayerResult, l2: LayerResult, l3: L3Result) -> FinalDecision:
     )
 
 
-def _risk_from_score(score: float) -> RiskLevel:
-    if score >= 0.85:
+def _risk_from_score(score: float, policy: PolicySettings | None = None) -> RiskLevel:
+    policy = policy or PolicySettings()
+    thresholds = policy.risk_thresholds
+    if score >= thresholds.violation:
         return RiskLevel.VIOLATION
-    if score >= 0.5:
+    if score >= thresholds.warning:
         return RiskLevel.WARNING
-    if score >= 0.2:
+    if score >= thresholds.hint:
         return RiskLevel.HINT
     return RiskLevel.COMPLIANT
 

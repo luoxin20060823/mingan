@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from ..pipeline.orchestrator import AuditOrchestrator
 from ..repository.audit_repo import AuditRepository
+from ..repository.policy_repo import PolicySettingsRepository
 from ..repository.rule_repo import RegexRuleRepository
 from ..repository.word_repo import WordRepository
 from .schemas import AuditBatchRequest, AuditBatchResponse, AuditTextRequest, AuditTextResponse
@@ -48,11 +49,13 @@ def _record_payload(text: str, response: AuditTextResponse) -> dict:
 async def _audit_and_store(request: Request, text: str) -> AuditTextResponse:
     words = WordRepository(request.app.state.db).list_words()
     regex_rules = [entry.__dict__ for entry in RegexRuleRepository(request.app.state.db).list_rules(enabled_only=True)]
+    policy = PolicySettingsRepository(request.app.state.db).get_policy()
     result = await AuditOrchestrator(
         words=words,
         regex_rules=regex_rules,
         homophones=request.app.state.homophones,
         glyph_confusables=request.app.state.glyph_confusables,
+        policy=policy,
     ).audit(text)
     response = _response(result)
     try:
@@ -71,11 +74,13 @@ async def audit_text(payload: AuditTextRequest, request: Request):
 async def audit_batch(payload: AuditBatchRequest, request: Request):
     words = WordRepository(request.app.state.db).list_words()
     regex_rules = [entry.__dict__ for entry in RegexRuleRepository(request.app.state.db).list_rules(enabled_only=True)]
+    policy = PolicySettingsRepository(request.app.state.db).get_policy()
     orchestrator = AuditOrchestrator(
         words=words,
         regex_rules=regex_rules,
         homophones=request.app.state.homophones,
         glyph_confusables=request.app.state.glyph_confusables,
+        policy=policy,
     )
     results: list[AuditTextResponse] = []
     records: list[dict] = []

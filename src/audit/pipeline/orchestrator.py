@@ -5,6 +5,7 @@ import time
 from pydantic import BaseModel
 
 from ..domain.models import DisposalSuggestion, HitDetail, ProcessingTime
+from ..policy.settings import PolicySettings
 from .disposal import build_disposal
 from .l1_rule import L1RuleEngine
 from .l2_variant import L2VariantEngine
@@ -33,20 +34,22 @@ class AuditOrchestrator:
         regex_rules: list[dict] | None = None,
         homophones: dict[str, str] | None = None,
         glyph_confusables: dict[str, str] | None = None,
+        policy: PolicySettings | None = None,
     ):
         self.words = list(words)
         self.l1 = L1RuleEngine(self.words, regex_rules=regex_rules)
         self.l2 = L2VariantEngine(self.words, homophones=homophones, glyph_confusables=glyph_confusables)
         self.l3 = l3 or L3SemanticEngine()
+        self.policy = policy or PolicySettings()
 
     async def audit(self, text: str) -> AuditResult:
         start = time.perf_counter()
         l1 = self.l1.scan(text)
         l2 = self.l2.scan(text)
         l3 = await self.l3.classify(text)
-        decision = fuse(l1, l2, l3)
+        decision = fuse(l1, l2, l3, self.policy)
         hits = [*l1.hits, *l2.hits, *l3.hits]
-        disposal = build_disposal(decision, hits)
+        disposal = build_disposal(decision, hits, self.policy)
         total_ms = max(0, int((time.perf_counter() - start) * 1000))
         processing = ProcessingTime(
             l1_ms=l1.elapsed_ms,

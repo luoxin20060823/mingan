@@ -1,6 +1,7 @@
 from audit.domain.enums import RiskLevel
 from audit.domain.enums import ViolationCategory
 from audit.domain.models import FinalDecision, HitDetail
+from audit.policy.settings import PolicySettings
 from audit.pipeline.disposal import build_disposal
 
 
@@ -35,3 +36,12 @@ def test_disposal_note_includes_explainable_hit_details():
 
     assert "L1/ahocorasick/违法广告/提示:招聘" in suggestion.operation_note
     assert "low_confidence_generic" in suggestion.operation_note
+
+
+def test_disposal_uses_configured_high_risk_categories():
+    decision = FinalDecision(risk_level=RiskLevel.VIOLATION, category="诈骗", confidence_score=0.9)
+    policy = PolicySettings(high_risk_categories=[ViolationCategory.FRAUD])
+
+    suggestion = build_disposal(decision, [], policy)
+
+    assert suggestion.platform_action.value == "block"

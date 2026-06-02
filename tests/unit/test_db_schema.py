@@ -39,3 +39,13 @@ def test_regex_rules_schema_has_unique_name_source_constraint(tmp_path):
         ]
 
     assert ["name", "source"] in unique_columns
+
+
+def test_policy_settings_schema_has_primary_key(tmp_path):
+    db = Database(str(tmp_path / "audit.db"))
+
+    with db.connect() as conn:
+        columns = conn.execute("PRAGMA table_info('policy_settings')").fetchall()
+
+    key_column = next(column for column in columns if column["name"] == "key")
+    assert key_column["pk"] == 1

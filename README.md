@@ -122,6 +122,20 @@ SQLITE_PATH=./data/audit.db
 
 启动时会把 `seeds/regex_rules.yaml` 导入为 `source=builtin` 规则；内置规则不能删除。通过 API 新增的 `source=custom` 规则会立即参与后续审核。
 
+### 策略配置
+
+后端提供策略配置 API：
+
+- `GET /policy`
+- `PUT /policy`
+
+当前可配置项包括：
+
+- 风险阈值：`hint`、`warning`、`violation`
+- 高风险类别：影响警告时是否进入人工复核，以及违规时是拦截还是删除
+
+更新策略后会立即影响后续审核。
+
 ## 真实词库
 
 本项目提供真实词库转换脚本：
@@ -198,6 +212,14 @@ curl -X DELETE "http://127.0.0.1:8000/words/123"
 curl -X POST "http://127.0.0.1:8000/rules" ^
   -H "Content-Type: application/json" ^
   -d "{\"name\":\"wechat_id\",\"pattern\":\"VX[:：]?[A-Za-z0-9_]{5,}\",\"category\":\"引流\",\"level\":\"警告\"}"
+```
+
+### 更新策略配置
+
+```bash
+curl -X PUT "http://127.0.0.1:8000/policy" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"risk_thresholds\":{\"hint\":0.1,\"warning\":0.4,\"violation\":0.8},\"high_risk_categories\":[\"涉政\",\"暴恐\",\"色情\",\"未成年人风险\"]}"
 ```
 
 ## 测试与验证
