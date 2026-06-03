@@ -30,6 +30,12 @@ http://127.0.0.1:8000/
 
 首页会自动跳转到静态控制台。
 
+服务健康检查：
+
+```text
+http://127.0.0.1:8000/health
+```
+
 ### 4. 首次启动会做什么
 
 - 自动创建 SQLite 数据库：`./data/audit.db`
@@ -194,6 +200,12 @@ curl -X POST "http://127.0.0.1:8000/audit/batch" ^
 
 ```bash
 curl "http://127.0.0.1:8000/history?page=1&page_size=20"
+```
+
+### 健康检查
+
+```bash
+curl "http://127.0.0.1:8000/health"
 ```
 
 ### 新增敏感词

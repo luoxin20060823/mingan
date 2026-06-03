@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .api.audit_routes import router as audit_router
 from .api.errors import install_error_handlers
+from .api.health_routes import router as health_router
 from .api.history_routes import router as history_router
 from .api.policy_routes import router as policy_router
 from .api.rule_routes import router as rule_router
@@ -112,6 +113,7 @@ def create_app() -> FastAPI:
     app.state.glyph_confusables = _load_character_mapping(settings.glyph_path)
 
     app.include_router(audit_router)
+    app.include_router(health_router)
     app.include_router(word_router)
     app.include_router(rule_router)
     app.include_router(policy_router)

@@ -28,6 +28,8 @@
 
 应用启动时会把数据库、词库缓存、同音字映射、字形混淆表和正则规则加载进 `app.state`，路由处理阶段直接复用这些对象。启动阶段还会比较当前内置词库来源与数据库里的 builtin 词库；如果不一致，会替换 builtin 词库，并保留用户新增的 custom 词。正则规则会从 `seeds/regex_rules.yaml` 导入到 SQLite，后续自定义规则可通过 API 管理。策略配置会写入 SQLite，后续审核请求会读取最新策略。
 
+服务提供 `GET /health` 用于部署和运维检查，返回数据库可用性、词库数量、启用规则数量以及当前语义审核模式。
+
 ## 3. 目录结构
 
 - `src/audit/main.py`：FastAPI 入口
@@ -279,11 +281,20 @@ L4 负责把三层结果综合起来，输出最终风险等级、类别和置�
 
 - `POST /audit/text`
 - `POST /audit/batch`
+- `GET /health`
 
 请求模型限制：
 
 - 单条文本最大 2000 字符
 - 批量最多 50 条
+
+`GET /health` 返回运行状态，不写入历史记录。主要字段包括：
+
+- `status`
+- `database`
+- `word_count`
+- `enabled_rule_count`
+- `semantic_mode`
 
 ### 9.2 历史接口
 
