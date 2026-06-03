@@ -96,7 +96,7 @@
 
 - `RiskLevel`：`合规 / 提示 / 警告 / 违规`
 - `ViolationCategory`：`涉政 / 暴恐 / 色情 / 辱骂 / 违法广告 / 诈骗 / 引流 / 未成年人风险 / 低俗 / 其他`
-- `PlatformAction`：平台动作枚举
+- `PlatformAction`：平台动作枚举，包含 `pass / hint / fold / manual_review / block / delete`
 - `HitDetail`：命中明细，记录层级、引擎、命中词、原文片段、位置、类别、等级和标记
 - `LayerResult`：单层引擎输出，包含得分、命中和耗时
 - `L3Result`：L3 额外包含风险等级、类别、解释和错误信息
@@ -172,6 +172,14 @@ L4 负责把三层结果综合起来，输出最终风险等级、类别和置�
 它的目标是把审核结果转换为可执行操作，而不是只给一个抽象分级。
 
 `operation_note` 会包含前几条可解释命中，格式包括层级、引擎、类别、等级、命中词和 flags，例如 `L1/ahocorasick/违法广告/提示:招聘, flags=low_confidence_generic`。这让人工复核能快速判断风险来自规则命中、变体识别、LLM 降级还是低置信泛词。
+
+动作映射规则：
+
+- `合规`：`pass`
+- `提示`：默认 `hint`
+- 低置信泛词导致的 `提示`：`pass`，同时在命中 flags 中保留 `low_confidence_generic`
+- `警告`：高风险类别进入 `manual_review`，其他类别 `fold`
+- `违规`：高风险类别 `block`，其他类别 `delete`
 
 ## 8. SQLite 设计
 

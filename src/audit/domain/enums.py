@@ -23,6 +23,7 @@ class ViolationCategory(str, Enum):
 
 class PlatformAction(str, Enum):
     PASS = "pass"
+    HINT = "hint"
     FOLD = "fold"
     DELETE = "delete"
     BLOCK = "block"

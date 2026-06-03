@@ -1,4 +1,4 @@
-from audit.domain.enums import RiskLevel, ViolationCategory
+from audit.domain.enums import PlatformAction, RiskLevel, ViolationCategory
 
 
 def test_risk_level_values():
@@ -18,3 +18,7 @@ def test_violation_category_values():
         "低俗",
         "其他",
     ]
+
+
+def test_platform_action_values():
+    assert [x.value for x in PlatformAction] == ["pass", "hint", "fold", "delete", "block", "manual_review"]

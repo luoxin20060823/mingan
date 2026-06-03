@@ -18,6 +18,33 @@ def test_warning_low_risk_category_folds():
     assert suggestion.platform_action.value == "fold"
 
 
+def test_hint_risk_gets_hint_action():
+    decision = FinalDecision(risk_level=RiskLevel.HINT, category="低俗", confidence_score=0.25)
+
+    suggestion = build_disposal(decision, [])
+
+    assert suggestion.platform_action.value == "hint"
+
+
+def test_low_confidence_generic_hint_still_passes():
+    decision = FinalDecision(risk_level=RiskLevel.HINT, category="违法广告", confidence_score=0.2)
+    hit = HitDetail(
+        layer="L1",
+        engine="ahocorasick",
+        matched_word="招聘",
+        original_fragment="招聘",
+        start=0,
+        end=2,
+        category=ViolationCategory.ILLEGAL_AD,
+        level=RiskLevel.HINT,
+        flags=["low_confidence_generic"],
+    )
+
+    suggestion = build_disposal(decision, [hit])
+
+    assert suggestion.platform_action.value == "pass"
+
+
 def test_disposal_note_includes_explainable_hit_details():
     decision = FinalDecision(risk_level=RiskLevel.HINT, category="违法广告", confidence_score=0.2)
     hit = HitDetail(

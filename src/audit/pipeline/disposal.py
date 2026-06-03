@@ -7,7 +7,7 @@ from ..policy.settings import PolicySettings
 
 def build_disposal(decision: FinalDecision, hits: list[HitDetail], policy: PolicySettings | None = None) -> DisposalSuggestion:
     policy = policy or PolicySettings()
-    action = _action_for(decision.risk_level, decision.category, policy.high_risk_category_values())
+    action = _action_for(decision.risk_level, decision.category, policy.high_risk_category_values(), hits)
     messages = {
         RiskLevel.COMPLIANT: "内容已通过审核。",
         RiskLevel.HINT: "内容已发布，请遵守社区规范。",
@@ -19,13 +19,26 @@ def build_disposal(decision: FinalDecision, hits: list[HitDetail], policy: Polic
     return DisposalSuggestion(platform_action=action, user_message=messages[decision.risk_level], operation_note=note[:500])
 
 
-def _action_for(risk: RiskLevel, category: str, high_risk_categories: set[str] | None = None) -> PlatformAction:
+def _action_for(
+    risk: RiskLevel,
+    category: str,
+    high_risk_categories: set[str] | None = None,
+    hits: list[HitDetail] | None = None,
+) -> PlatformAction:
     high_risk_categories = high_risk_categories or PolicySettings().high_risk_category_values()
-    if risk in {RiskLevel.COMPLIANT, RiskLevel.HINT}:
+    if risk == RiskLevel.COMPLIANT:
         return PlatformAction.PASS
+    if risk == RiskLevel.HINT:
+        if _only_low_confidence_generic(hits or []):
+            return PlatformAction.PASS
+        return PlatformAction.HINT
     if risk == RiskLevel.WARNING:
         return PlatformAction.MANUAL_REVIEW if category in high_risk_categories else PlatformAction.FOLD
     return PlatformAction.BLOCK if category in high_risk_categories else PlatformAction.DELETE
+
+
+def _only_low_confidence_generic(hits: list[HitDetail]) -> bool:
+    return bool(hits) and all("low_confidence_generic" in hit.flags for hit in hits)
 
 
 def _explain_hits(hits: list[HitDetail]) -> str:
