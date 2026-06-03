@@ -44,6 +44,20 @@ def test_l2_mixed_hanzi_and_pinyin_variant_scores_nine_tenths():
     assert any(hit.engine == "pinyin" for hit in result.hits)
 
 
+def test_l2_does_not_match_short_word_from_unrelated_hanzi_pinyin():
+    result = L2VariantEngine([Word("禁区", "涉政", "警告")]).scan("扫描二维码进群领取福利")
+
+    assert result.score == 0.0
+    assert result.hits == []
+
+
+def test_l2_does_not_match_short_word_inside_anti_fraud_education_context():
+    result = L2VariantEngine([Word("哈克", "涉政", "警告")]).scan("反诈课堂提醒：不要相信刷单返利")
+
+    assert result.score == 0.0
+    assert result.hits == []
+
+
 def test_l2_pinyin_hit_position_points_to_original_variant_fragment():
     result = L2VariantEngine([Word("坏词", "其他", "违规")]).scan("前缀 huaici 后缀")
     hit = next(hit for hit in result.hits if hit.engine == "pinyin")

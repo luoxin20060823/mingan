@@ -10,3 +10,15 @@
   pattern: "QQ[:：]?\\s*\\d{5,12}"
   category: "违法广告"
   level: "警告"
+- name: wechat_id
+  pattern: "(?:微信|微\\s*信|vx|VX|V信|v信|加V|加v)[:：\\s-]*[A-Za-z0-9_\\-]{5,}"
+  category: "引流"
+  level: "警告"
+- name: qr_group
+  pattern: "(?:二维码|扫码|扫\\s*码).{0,8}(?:进群|加群|入群|领取|福利)"
+  category: "引流"
+  level: "警告"
+- name: telegram
+  pattern: "(?:Telegram|telegram|TG|tg|电报)[:：\\s-]*[A-Za-z0-9_@\\-]{4,}"
+  category: "引流"
+  level: "警告"

@@ -18,6 +18,7 @@ def _cases():
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("SQLITE_PATH", str(tmp_path / "audit.db"))
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "")
     return TestClient(create_app())
 
 

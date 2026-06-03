@@ -63,6 +63,7 @@ class L2VariantEngine:
         return hits
 
     def _pinyin_scan(self, text: str, flags: list[str]) -> list[HitDetail]:
+        has_ascii_letters = bool(re.search(r"[A-Za-z]", text))
         compact_chars: list[str] = []
         compact_index_map: list[int] = []
         mixed_parts: list[str] = []
@@ -90,7 +91,7 @@ class L2VariantEngine:
                 continue
             for needle, haystack, index_map, allowed in (
                 (full, compact, compact_index_map, True),
-                (full, mixed_compact, mixed_index_map, not has_plain_word),
+                (full, mixed_compact, mixed_index_map, not has_plain_word and has_ascii_letters),
                 (initials, compact, compact_index_map, len(initials) >= 3),
             ):
                 if not needle or not allowed:

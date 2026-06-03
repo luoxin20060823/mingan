@@ -34,21 +34,21 @@ def test_custom_regex_rule_takes_effect_and_can_be_deleted(tmp_path, monkeypatch
 
     created = client.post(
         "/rules",
-        json={"name": "wechat_id", "pattern": "VX[:：]?[A-Za-z0-9_]{5,}", "category": "引流", "level": "警告"},
+        json={"name": "invite_code", "pattern": "邀请码[:：]?[A-Z0-9]{6}", "category": "引流", "level": "警告"},
     )
     assert created.status_code == 201
     rule_id = created.json()["id"]
 
-    hit = client.post("/audit/text", json={"text": "请联系 VXabc12345"})
+    hit = client.post("/audit/text", json={"text": "请输入邀请码ABC123"})
     assert hit.status_code == 200
-    assert any(item["engine"] == "regex:wechat_id" for item in hit.json()["hit_details"])
+    assert any(item["engine"] == "regex:invite_code" for item in hit.json()["hit_details"])
 
     deleted = client.delete(f"/rules/{rule_id}")
     assert deleted.status_code == 204
 
-    missed = client.post("/audit/text", json={"text": "请联系 VXabc12345"})
+    missed = client.post("/audit/text", json={"text": "请输入邀请码ABC123"})
     assert missed.status_code == 200
-    assert not any(item["engine"] == "regex:wechat_id" for item in missed.json()["hit_details"])
+    assert not any(item["engine"] == "regex:invite_code" for item in missed.json()["hit_details"])
 
 
 def test_rule_api_rejects_invalid_regex(tmp_path, monkeypatch):
