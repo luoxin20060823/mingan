@@ -43,5 +43,8 @@ def test_static_console_contains_expected_workflow_controls():
         "wordPageLabel",
         "changeHistoryPage",
         "changeWordPage",
+        "wordFilters.q",
+        "ruleFilters.q",
+        "关键词搜索",
     ):
         assert text in html

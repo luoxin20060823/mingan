@@ -115,6 +115,7 @@ SQLITE_PATH=./data/audit.db
 
 - 新增自定义敏感词
 - 查看敏感词列表
+- 按关键词搜索词条
 - 按类别和等级筛选
 - 删除自定义词条
 
@@ -131,6 +132,8 @@ SQLITE_PATH=./data/audit.db
 启动时会把 `seeds/regex_rules.yaml` 导入为 `source=builtin` 规则；内置规则不能删除。通过控制台或 API 新增的 `source=custom` 规则会立即参与后续审核。
 
 默认内置规则覆盖手机号、URL、QQ、微信/VX、二维码进群和 Telegram/TG 等模式型风险。其中微信、二维码进群和 Telegram/TG 默认归为 `引流`。
+
+规则列表支持按规则名或正则表达式关键词搜索。
 
 ### 策略配置
 

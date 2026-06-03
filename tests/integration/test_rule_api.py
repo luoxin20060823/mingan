@@ -51,6 +51,28 @@ def test_custom_regex_rule_takes_effect_and_can_be_deleted(tmp_path, monkeypatch
     assert not any(item["engine"] == "regex:invite_code" for item in missed.json()["hit_details"])
 
 
+def test_rule_api_supports_keyword_search(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    client.post(
+        "/rules",
+        json={"name": "special_invite", "pattern": "暗号[:：]?[A-Z0-9]{4}", "category": "引流", "level": "警告"},
+    )
+    client.post(
+        "/rules",
+        json={"name": "ordinary_code", "pattern": "普通码[:：]?[A-Z0-9]{4}", "category": "其他", "level": "提示"},
+    )
+
+    by_name = client.get("/rules", params={"q": "special", "page_size": 100})
+    by_pattern = client.get("/rules", params={"q": "暗号", "page_size": 100})
+
+    assert by_name.status_code == 200
+    assert by_name.json()["total"] == 1
+    assert by_name.json()["items"][0]["name"] == "special_invite"
+    assert by_pattern.status_code == 200
+    assert by_pattern.json()["total"] == 1
+    assert by_pattern.json()["items"][0]["name"] == "special_invite"
+
+
 def test_rule_api_rejects_invalid_regex(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
 

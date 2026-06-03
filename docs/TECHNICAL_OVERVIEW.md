@@ -317,6 +317,8 @@ L4 负责把三层结果综合起来，输出最终风险等级、类别和置�
 
 删除时会拒绝内置词条 `source=builtin`。
 
+`GET /words` 支持 `q`、`category`、`level`、`page`、`page_size` 参数。`q` 对词条文本做大小写不敏感的包含匹配。
+
 ### 9.4 规则接口
 
 - `POST /rules`
@@ -324,6 +326,8 @@ L4 负责把三层结果综合起来，输出最终风险等级、类别和置�
 - `DELETE /rules/{rule_id}`
 
 创建规则时会验证正则表达式能正常编译。删除时会拒绝内置规则 `source=builtin`。
+
+`GET /rules` 支持 `q`、`category`、`level`、`enabled`、`page`、`page_size` 参数。`q` 会匹配规则名和正则表达式。
 
 ### 9.5 策略接口
 

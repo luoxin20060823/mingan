@@ -22,7 +22,14 @@ def create_word(payload: WordCreateRequest, request: Request):
 
 
 @router.get("/words", response_model=PageResponse)
-def list_words(request: Request, category: str | None = None, level: str | None = None, page: int = 1, page_size: int = 20):
+def list_words(
+    request: Request,
+    category: str | None = None,
+    level: str | None = None,
+    q: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+):
     if page < 1 or page_size < 1 or page_size > 100:
         raise HTTPException(status_code=400, detail="invalid pagination")
     if category is not None:
@@ -40,6 +47,9 @@ def list_words(request: Request, category: str | None = None, level: str | None 
         words = [w for w in words if w.category == category]
     if level:
         words = [w for w in words if w.level == level]
+    if q and q.strip():
+        keyword = q.strip().casefold()
+        words = [w for w in words if keyword in w.word.casefold()]
     start = (page - 1) * page_size
     items = [WordResponse(**w.__dict__).model_dump() for w in words[start : start + page_size]]
     return PageResponse(total=len(words), page=page, page_size=page_size, items=items)

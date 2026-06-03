@@ -31,6 +31,7 @@ def list_rules(
     category: str | None = None,
     level: str | None = None,
     enabled: bool | None = None,
+    q: str | None = None,
     page: int = 1,
     page_size: int = 20,
 ):
@@ -54,6 +55,9 @@ def list_rules(
         rules = [rule for rule in rules if rule.level == level]
     if enabled is not None:
         rules = [rule for rule in rules if rule.enabled is enabled]
+    if q and q.strip():
+        keyword = q.strip().casefold()
+        rules = [rule for rule in rules if keyword in rule.name.casefold() or keyword in rule.pattern.casefold()]
     start = (page - 1) * page_size
     items = [RegexRuleResponse(**rule.__dict__).model_dump() for rule in rules[start : start + page_size]]
     return PageResponse(total=len(rules), page=page, page_size=page_size, items=items)

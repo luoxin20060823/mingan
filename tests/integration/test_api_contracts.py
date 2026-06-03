@@ -66,6 +66,19 @@ def test_words_reject_invalid_filters_and_trim_blank_word(tmp_path, monkeypatch)
     assert client.post("/words", json={"word": "   ", "category": "其他", "level": "违规"}).status_code == 400
 
 
+def test_words_support_keyword_search(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    client.post("/words", json={"word": "搜索专用测试词", "category": "其他", "level": "警告"})
+    client.post("/words", json={"word": "无关测试词", "category": "其他", "level": "警告"})
+
+    response = client.get("/words", params={"q": "搜索专用", "page_size": 100})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert body["items"][0]["word"] == "搜索专用测试词"
+
+
 def test_words_delete_rejects_builtin_entries(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
     listed = client.get("/words?page_size=1").json()
