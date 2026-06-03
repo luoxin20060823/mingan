@@ -212,8 +212,25 @@
         historyFilters: {risk_level: '', category: '', start_time: '', end_time: ''},
         async api(path, options = {}) {
           const resp = await fetch(path, {headers: {'Content-Type': 'application/json'}, ...options});
-          if (!resp.ok) throw new Error((await resp.text()) || resp.statusText);
+          if (!resp.ok) throw new Error(await this.formatApiError(resp));
           return resp.status === 204 ? null : await resp.json();
+        },
+        async formatApiError(resp) {
+          const text = await resp.text();
+          if (!text) return resp.statusText || `HTTP ${resp.status}`;
+          try {
+            const payload = JSON.parse(text);
+            if (payload.error && payload.error.message) {
+              const details = Array.isArray(payload.error.details) && payload.error.details.length
+                ? '：' + payload.error.details.map(item => item.msg || item.message || String(item)).join('；')
+                : '';
+              return payload.error.message + details;
+            }
+            if (payload.detail) return Array.isArray(payload.detail) ? payload.detail.map(item => item.msg || String(item)).join('；') : String(payload.detail);
+          } catch (e) {
+            return text;
+          }
+          return text;
         },
         async auditSingle() {
           this.error = '';

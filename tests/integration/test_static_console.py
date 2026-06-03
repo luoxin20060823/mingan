@@ -28,5 +28,7 @@ def test_static_console_contains_expected_workflow_controls():
         "清除筛选",
         "setDefaultHistoryRange",
         "90 * 24 * 60 * 60 * 1000",
+        "formatApiError",
+        "payload.error.message",
     ):
         assert text in html
