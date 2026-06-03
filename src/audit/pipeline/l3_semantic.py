@@ -9,6 +9,47 @@ from ..domain.enums import RiskLevel, ViolationCategory
 from ..domain.models import HitDetail, L3Result
 from ..settings import Settings
 
+ALLOWED_RISK_LEVELS = tuple(level.value for level in RiskLevel)
+ALLOWED_CATEGORIES = tuple(category.value for category in ViolationCategory)
+
+SYSTEM_PROMPT = """你是中文内容安全审核员，负责补充规则引擎无法稳定识别的语义风险。
+请按通用内容平台审核逻辑判断整段文本，不要因为单个普通词语就判违规。
+只输出 JSON，不要输出 Markdown、解释性前缀或多余文本。"""
+
+
+def build_l3_messages(text: str) -> list[dict[str, str]]:
+    risk_levels = "、".join(ALLOWED_RISK_LEVELS)
+    categories = "、".join(ALLOWED_CATEGORIES)
+    user_prompt = f"""请审核以下中文内容，并严格返回一个 JSON 对象。
+
+可选 risk_level：{risk_levels}
+可选 category：{categories}。当 risk_level 为“合规”时，category 必须为空字符串。
+
+JSON 字段必须完整：
+{{
+  "risk_level": "合规|提示|警告|违规",
+  "category": "涉政|暴恐|色情|辱骂|违法广告|诈骗|引流|未成年人风险|低俗|其他 或 空字符串",
+  "reason": "用一句话说明主要依据，避免泄露绕过方法",
+  "score": 0.0
+}}
+
+审核原则：
+- 明显诈骗、诱导私下交易、保证金返利、钓鱼链接、仿冒客服，优先归为“诈骗”。
+- 诱导加群、私聊、外部平台联系、规避平台交易，优先归为“引流”。
+- 涉及未成年人性暗示、诱导、伤害或不当接触，优先归为“未成年人风险”。
+- 粗俗擦边但未达到色情或辱骂强度，可归为“低俗”。
+- 正常招聘、兼职信息、新闻报道、科普教育、合规商品说明、风险提示和反诈宣传，不应仅因出现敏感词而判违规。
+- 无法确定时使用较低风险等级，并在 reason 中说明不确定性。
+
+待审核文本：
+<<<
+{text}
+>>>"""
+    return [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_prompt},
+    ]
+
 
 class L3SemanticEngine:
     def __init__(self, settings: Settings | None = None, client: httpx.AsyncClient | None = None):
@@ -21,11 +62,7 @@ class L3SemanticEngine:
             return self._error_result(text, start, "missing_api_key")
         try:
             data = await self._request(text)
-            risk = RiskLevel(data["risk_level"])
-            raw_category = data["category"]
-            category = None if raw_category == RiskLevel.COMPLIANT.value else ViolationCategory(raw_category)
-            score = max(0.0, min(1.0, float(data["score"])))
-            reason = str(data["reason"])
+            risk, category, score, reason = self._parse_response_data(data)
             hits: list[HitDetail] = []
             if risk != RiskLevel.COMPLIANT:
                 hits.append(
@@ -54,10 +91,7 @@ class L3SemanticEngine:
     async def _request(self, text: str) -> dict:
         payload = {
             "model": self.settings.deepseek_model,
-            "messages": [
-                {"role": "system", "content": "你是中文内容安全审核员。请仅输出 JSON。"},
-                {"role": "user", "content": text},
-            ],
+            "messages": build_l3_messages(text),
             "response_format": {"type": "json_object"},
             "temperature": 0.0,
         }
@@ -76,6 +110,16 @@ class L3SemanticEngine:
             if field not in data:
                 raise ValueError(f"missing {field}")
         return data
+
+    @staticmethod
+    def _parse_response_data(data: dict) -> tuple[RiskLevel, ViolationCategory | None, float, str]:
+        risk = _parse_risk_level(data["risk_level"])
+        category = _parse_category(data["category"], risk)
+        score = _parse_score(data["score"])
+        reason = str(data["reason"]).strip()
+        if not reason:
+            raise ValueError("missing reason")
+        return risk, category, score, reason
 
     def _error_result(self, text: str, start: float, error: str) -> L3Result:
         hit = HitDetail(
@@ -102,3 +146,29 @@ class L3SemanticEngine:
     @staticmethod
     def _elapsed(start: float) -> int:
         return max(0, int((time.perf_counter() - start) * 1000))
+
+
+def _parse_risk_level(value: object) -> RiskLevel:
+    try:
+        return RiskLevel(str(value).strip())
+    except ValueError as exc:
+        raise ValueError(f"invalid risk_level: {value}") from exc
+
+
+def _parse_category(value: object, risk: RiskLevel) -> ViolationCategory | None:
+    raw_category = str(value).strip()
+    if risk == RiskLevel.COMPLIANT:
+        return None
+    if not raw_category:
+        raise ValueError("invalid category: empty for non-compliant risk")
+    try:
+        return ViolationCategory(raw_category)
+    except ValueError as exc:
+        raise ValueError(f"invalid category: {raw_category}") from exc
+
+
+def _parse_score(value: object) -> float:
+    try:
+        return max(0.0, min(1.0, float(value)))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"invalid score: {value}") from exc
