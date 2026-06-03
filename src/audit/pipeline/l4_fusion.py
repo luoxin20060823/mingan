@@ -21,7 +21,9 @@ SPECIFIC_CATEGORY_PRIORITY = {
 
 def fuse(l1: LayerResult, l2: LayerResult, l3: L3Result, policy: PolicySettings | None = None) -> FinalDecision:
     policy = policy or PolicySettings()
-    max_score = max(l1.score, l2.score, l3.score)
+    l1_score = _adjust_l1_score(l1, l3)
+    l2_score = _adjust_l2_score(l2, l3)
+    max_score = max(l1_score, l2_score, l3.score)
     risk = _risk_from_score(max_score, policy)
     category = "" if risk == RiskLevel.COMPLIANT else _winning_category(l1, l2, l3)
     l1_available = l1.elapsed_ms >= 0
@@ -38,8 +40,8 @@ def fuse(l1: LayerResult, l2: LayerResult, l3: L3Result, policy: PolicySettings 
         risk_level=risk,
         category=category,
         confidence_score=round(confidence, 4),
-        l1_score=l1.score,
-        l2_score=l2.score,
+        l1_score=l1_score,
+        l2_score=l2_score,
         l3_score=l3.score,
         l1_hits=l1.hits,
         l2_hits=l2.hits,
@@ -62,9 +64,32 @@ def _risk_from_score(score: float, policy: PolicySettings | None = None) -> Risk
     return RiskLevel.COMPLIANT
 
 
+def _adjust_l2_score(l2: LayerResult, l3: L3Result) -> float:
+    if l3.risk_level != RiskLevel.COMPLIANT:
+        return l2.score
+    if not l2.hits:
+        return l2.score
+    if all(hit.category == ViolationCategory.OTHER and hit.level != RiskLevel.VIOLATION for hit in l2.hits):
+        return min(l2.score, 0.2)
+    return l2.score
+
+
+def _adjust_l1_score(l1: LayerResult, l3: L3Result) -> float:
+    if l3.risk_level != RiskLevel.COMPLIANT:
+        return l1.score
+    if not l1.hits:
+        return l1.score
+    if all(hit.level != RiskLevel.VIOLATION and "low_confidence_generic" in hit.flags for hit in l1.hits):
+        return min(l1.score, 0.2)
+    return l1.score
+
+
 def _winning_category(l1: LayerResult, l2: LayerResult, l3: L3Result) -> str:
+    l3_category = _category_from_l3(l3)
+    if l3_category and l3.risk_level in {RiskLevel.WARNING, RiskLevel.VIOLATION}:
+        return l3_category
     candidates = [
-        *_categories_from_result(l3.score, l3.hits, _category_from_l3(l3)),
+        *_categories_from_result(l3.score, l3.hits, l3_category),
         *_categories_from_result(l2.score, l2.hits),
         *_categories_from_result(l1.score, l1.hits),
     ]

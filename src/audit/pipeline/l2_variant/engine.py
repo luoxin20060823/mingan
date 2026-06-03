@@ -64,6 +64,8 @@ class L2VariantEngine:
 
     def _pinyin_scan(self, text: str, flags: list[str]) -> list[HitDetail]:
         has_ascii_letters = bool(re.search(r"[A-Za-z]", text))
+        if not has_ascii_letters:
+            return []
         compact_chars: list[str] = []
         compact_index_map: list[int] = []
         mixed_parts: list[str] = []
@@ -90,9 +92,9 @@ class L2VariantEngine:
             if len(full) < 4:
                 continue
             for needle, haystack, index_map, allowed in (
-                (full, compact, compact_index_map, True),
+                (full, compact, compact_index_map, re.search(r"[A-Za-z]", compact) is not None),
                 (full, mixed_compact, mixed_index_map, not has_plain_word and has_ascii_letters),
-                (initials, compact, compact_index_map, len(initials) >= 3),
+                (initials, compact, compact_index_map, len(initials) >= 3 and re.search(r"[A-Za-z]", compact) is not None),
             ):
                 if not needle or not allowed:
                     continue
@@ -101,6 +103,8 @@ class L2VariantEngine:
                     continue
                 start = index_map[idx]
                 end = index_map[idx + len(needle) - 1] + 1
+                if not _looks_like_explicit_pinyin_variant(text, start, end):
+                    continue
                 hits.append(self._hit("pinyin", entry, text, start, end, flags))
                 break
         return hits
@@ -149,3 +153,16 @@ def compute_l2_score(hits: list[HitDetail]) -> float:
     if engines & {"pinyin", "homophone", "glyph"}:
         return 0.9
     return 0.6
+
+
+def _looks_like_explicit_pinyin_variant(text: str, start: int, end: int) -> bool:
+    fragment = text[start:end]
+    letters = re.findall(r"[A-Za-z]", fragment)
+    if not letters:
+        return False
+    if fragment.isascii() and re.fullmatch(r"[A-Za-z]+", fragment):
+        left_is_letter = start > 0 and bool(re.match(r"[A-Za-z]", text[start - 1]))
+        right_is_letter = end < len(text) and bool(re.match(r"[A-Za-z]", text[end]))
+        if left_is_letter or right_is_letter:
+            return False
+    return len(letters) >= 4 or (len(letters) >= 2 and re.search(r"[\u4e00-\u9fff]", fragment) is not None)

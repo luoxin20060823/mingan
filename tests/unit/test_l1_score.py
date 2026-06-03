@@ -79,3 +79,19 @@ def test_l1_builds_ahocorasick_automaton():
     engine = L1RuleEngine([Word("坏词", "其他", "违规")])
 
     assert engine.automaton is not None
+
+
+def test_l1_ignores_low_quality_single_character_seed_terms():
+    result = L1RuleEngine([Word("令", "其他", "警告"), Word("p", "其他", "警告")]).scan("命令执行器输出 p 参数")
+
+    assert result.score == 0.0
+    assert result.hits == []
+
+
+def test_l1_ignores_common_benign_seed_terms_without_risk_context():
+    result = L1RuleEngine([Word("价格", "涉政", "警告"), Word("完成", "其他", "警告")]).scan(
+        "审批模型未配置价格，接口验证已经完成。"
+    )
+
+    assert result.score == 0.0
+    assert result.hits == []

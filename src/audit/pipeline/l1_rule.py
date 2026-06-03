@@ -8,7 +8,7 @@ import ahocorasick
 from ..domain.enums import RiskLevel, ViolationCategory
 from ..domain.models import HitDetail, LayerResult
 from ..policy.category_rules import normalize_category
-from ..policy.false_positive import adjust_hit_confidence
+from ..policy.false_positive import adjust_hit_confidence, is_local_technical_url, is_low_quality_seed_term
 
 
 LEVEL_ORDER = {
@@ -43,26 +43,29 @@ class L1RuleEngine:
             raise ValueError("text exceeds 10000 characters")
 
         hits: list[HitDetail] = []
-        for end_idx, entry in self.automaton.iter(text):
-            word = entry.word
-            start_idx = end_idx - len(word) + 1
-            category = ViolationCategory(normalize_category(word, entry.category))
-            level, flags = adjust_hit_confidence(word, category, RiskLevel(entry.level), text)
-            hits.append(
-                HitDetail(
-                    layer="L1",
-                    engine="ahocorasick",
-                    matched_word=word,
-                    original_fragment=text[start_idx : end_idx + 1],
-                    start=start_idx,
-                    end=end_idx + 1,
-                    category=category,
-                    level=level,
-                    flags=flags,
+        if self.automaton:
+            for end_idx, entry in self.automaton.iter(text):
+                word = entry.word
+                start_idx = end_idx - len(word) + 1
+                category = ViolationCategory(normalize_category(word, entry.category))
+                level, flags = adjust_hit_confidence(word, category, RiskLevel(entry.level), text)
+                hits.append(
+                    HitDetail(
+                        layer="L1",
+                        engine="ahocorasick",
+                        matched_word=word,
+                        original_fragment=text[start_idx : end_idx + 1],
+                        start=start_idx,
+                        end=end_idx + 1,
+                        category=category,
+                        level=level,
+                        flags=flags,
+                    )
                 )
-            )
         for rule in self.regex_rules:
             for match in rule["pattern"].finditer(text):
+                if rule["name"] == "url" and is_local_technical_url(match.group(0)):
+                    continue
                 hits.append(
                     HitDetail(
                         layer="L1",
@@ -84,9 +87,15 @@ class L1RuleEngine:
     @staticmethod
     def _build_automaton(words):
         automaton = ahocorasick.Automaton()
+        added = False
         for entry in words:
-            if entry.word:
+            if entry.word and not is_low_quality_seed_term(
+                entry.word, ViolationCategory(normalize_category(entry.word, entry.category))
+            ):
                 automaton.add_word(entry.word, entry)
+                added = True
+        if not added:
+            return None
         automaton.make_automaton()
         return automaton
 

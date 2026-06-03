@@ -79,3 +79,31 @@ def test_l2_glyph_variant_scores_nine_tenths():
 
     assert result.score == 0.9
     assert any(hit.engine == "glyph" and hit.matched_word == "坏词" for hit in result.hits)
+
+
+def test_l2_does_not_treat_common_hanzi_as_political_pinyin_variants():
+    words = [
+        Word("主席", "涉政", "警告"),
+        Word("傻习", "涉政", "警告"),
+        Word("罢课", "涉政", "违规"),
+        Word("核蛋", "涉政", "违规"),
+    ]
+
+    result = L2VariantEngine(words).scan("主线分支出现构建失败，沙箱进程启动失败，把可以复现的日志贴出来。")
+
+    assert result.score == 0.0
+    assert result.hits == []
+
+
+def test_l2_still_detects_ascii_pinyin_evasion():
+    result = L2VariantEngine([Word("坏词", "其他", "违规")]).scan("这里有 huai ci")
+
+    assert result.score == 0.9
+    assert any(hit.engine == "pinyin" for hit in result.hits)
+
+
+def test_l2_does_not_match_pinyin_inside_technical_identifiers():
+    result = L2VariantEngine([Word("女儿", "其他", "警告")]).scan("Invoke-RestMethod | ConvertTo-Json")
+
+    assert result.score == 0.0
+    assert result.hits == []
