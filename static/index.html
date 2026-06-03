@@ -133,6 +133,48 @@
         </tbody>
       </table>
     </section>
+
+    <section x-show="currentTab === 'rules'" class="space-y-4" x-init="loadRules()">
+      <div class="grid gap-2 md:grid-cols-5">
+        <input class="rounded border p-2" x-model="ruleForm.name" placeholder="规则名" />
+        <input class="rounded border p-2 md:col-span-2" x-model="ruleForm.pattern" placeholder="正则表达式" />
+        <select class="rounded border p-2" x-model="ruleForm.category"><template x-for="c in categories"><option x-text="c"></option></template></select>
+        <select class="rounded border p-2" x-model="ruleForm.level"><template x-for="r in risks.filter(x => x !== '合规')"><option x-text="r"></option></template></select>
+      </div>
+      <div class="flex gap-2">
+        <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="ruleForm.enabled" />启用</label>
+        <button class="rounded bg-blue-600 px-4 py-2 text-white" @click="createRule()">新增规则</button>
+        <button class="rounded border px-3 py-2" @click="loadRules()">刷新</button>
+      </div>
+      <table class="w-full border-collapse bg-white text-sm">
+        <thead><tr class="border-b"><th class="p-2 text-left">规则名</th><th class="p-2 text-left">表达式</th><th class="p-2 text-left">类别</th><th class="p-2 text-left">等级</th><th class="p-2 text-left">来源</th><th class="p-2 text-left">状态</th><th class="p-2 text-left">操作</th></tr></thead>
+        <tbody>
+          <template x-for="rule in rules.items" :key="rule.id">
+            <tr class="border-b"><td class="p-2" x-text="rule.name"></td><td class="p-2 font-mono text-xs" x-text="rule.pattern"></td><td class="p-2" x-text="rule.category"></td><td class="p-2" x-text="rule.level"></td><td class="p-2" x-text="rule.source"></td><td class="p-2" x-text="rule.enabled ? '启用' : '停用'"></td><td class="p-2"><button class="text-red-600 disabled:text-slate-400" :disabled="rule.source === 'builtin'" @click="deleteRule(rule.id)">删除</button></td></tr>
+          </template>
+        </tbody>
+      </table>
+    </section>
+
+    <section x-show="currentTab === 'policy'" class="space-y-4" x-init="loadPolicy()">
+      <div class="grid gap-3 md:grid-cols-3">
+        <label class="text-sm">提示阈值<input class="mt-1 w-full rounded border p-2" type="number" step="0.01" min="0" max="1" x-model.number="policyForm.risk_thresholds.hint" /></label>
+        <label class="text-sm">警告阈值<input class="mt-1 w-full rounded border p-2" type="number" step="0.01" min="0" max="1" x-model.number="policyForm.risk_thresholds.warning" /></label>
+        <label class="text-sm">违规阈值<input class="mt-1 w-full rounded border p-2" type="number" step="0.01" min="0" max="1" x-model.number="policyForm.risk_thresholds.violation" /></label>
+      </div>
+      <div class="rounded border bg-white p-3">
+        <div class="mb-2 text-sm font-medium">高风险类别</div>
+        <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <template x-for="category in categories" :key="category">
+            <label class="flex items-center gap-2 text-sm"><input type="checkbox" :value="category" x-model="policyForm.high_risk_categories" /><span x-text="category"></span></label>
+          </template>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button class="rounded bg-blue-600 px-4 py-2 text-white" @click="savePolicy()">保存策略</button>
+        <button class="rounded border px-3 py-2" @click="loadPolicy()">恢复当前配置</button>
+      </div>
+    </section>
   </main>
 
   <div x-show="selectedResult" class="fixed inset-0 z-10 bg-black/40 p-4" @click.self="selectedResult = null">
@@ -158,12 +200,14 @@
   <script>
     function app() {
       return {
-        tabs: [{id:'single', label:'单条审核'}, {id:'batch', label:'批量审核'}, {id:'history', label:'历史记录'}, {id:'words', label:'敏感词管理'}],
+        tabs: [{id:'single', label:'单条审核'}, {id:'batch', label:'批量审核'}, {id:'history', label:'历史记录'}, {id:'words', label:'敏感词管理'}, {id:'rules', label:'规则管理'}, {id:'policy', label:'策略配置'}],
         currentTab: 'single', loading: false, error: '',
         singleText: '', singleResult: null, batchText: '', batchResults: [], selectedResult: null,
-        history: {total: 0, items: []}, words: {total: 0, items: []},
+        history: {total: 0, items: []}, words: {total: 0, items: []}, rules: {total: 0, items: []},
         categories: ['涉政','暴恐','色情','辱骂','违法广告','诈骗','引流','未成年人风险','低俗','其他'], risks: ['合规','提示','警告','违规'],
         wordForm: {word: '', category: '其他', level: '违规'},
+        ruleForm: {name: '', pattern: '', category: '引流', level: '警告', enabled: true},
+        policyForm: {risk_thresholds: {hint: 0.2, warning: 0.5, violation: 0.85}, high_risk_categories: ['涉政','暴恐','色情','未成年人风险']},
         wordFilters: {category: '', level: ''},
         historyFilters: {risk_level: '', category: '', start_time: '', end_time: ''},
         async api(path, options = {}) {
@@ -226,6 +270,21 @@
           try { await this.api('/words', {method:'POST', body: JSON.stringify(this.wordForm)}); this.wordForm.word = ''; await this.loadWords(); } catch(e) { this.error = e.message; }
         },
         async deleteWord(id) { if (!confirm('确认删除该词条？')) return; try { await this.api(`/words/${id}`, {method:'DELETE'}); await this.loadWords(); } catch(e) { this.error = e.message; } },
+        async loadRules() { try { this.rules = await this.api('/rules?page_size=100'); } catch(e) { this.error = e.message; } },
+        async createRule() {
+          this.error = '';
+          if (!this.ruleForm.name.trim() || !this.ruleForm.pattern.trim()) { this.error = '规则名和正则表达式不能为空'; return; }
+          try { await this.api('/rules', {method:'POST', body: JSON.stringify(this.ruleForm)}); this.ruleForm.name = ''; this.ruleForm.pattern = ''; await this.loadRules(); } catch(e) { this.error = e.message; }
+        },
+        async deleteRule(id) { if (!confirm('确认删除该规则？')) return; try { await this.api(`/rules/${id}`, {method:'DELETE'}); await this.loadRules(); } catch(e) { this.error = e.message; } },
+        async loadPolicy() { try { this.policyForm = await this.api('/policy'); } catch(e) { this.error = e.message; } },
+        async savePolicy() {
+          this.error = '';
+          const t = this.policyForm.risk_thresholds;
+          if (!(t.hint >= 0 && t.warning > t.hint && t.violation > t.warning && t.violation <= 1)) { this.error = '阈值需满足 0 <= hint < warning < violation <= 1'; return; }
+          if (!this.policyForm.high_risk_categories.length) { this.error = '至少选择一个高风险类别'; return; }
+          try { this.policyForm = await this.api('/policy', {method:'PUT', body: JSON.stringify(this.policyForm)}); } catch(e) { this.error = e.message; }
+        },
         historyRowToResult(item) {
           return {text: item.text, result: {
             risk_level: item.risk_level, violation_category: item.violation_category, confidence_score: item.confidence_score,
