@@ -5,6 +5,10 @@ from ..domain.enums import ViolationCategory
 
 CATEGORY_KEYWORDS: list[tuple[ViolationCategory, tuple[str, ...]]] = [
     (
+        ViolationCategory.ABUSE,
+        ("无耻", "恶心", "废物", "垃圾", "蠢货", "白痴", "脑残", "滚开"),
+    ),
+    (
         ViolationCategory.MINOR_SAFETY,
         ("未成年", "未滿", "未满", "幼女", "幼齿", "萝莉", "学生妹", "童模", "儿童色情", "恋童"),
     ),

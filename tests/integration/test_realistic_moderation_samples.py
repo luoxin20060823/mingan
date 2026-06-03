@@ -64,3 +64,21 @@ def test_realistic_traffic_diversion_sample_is_still_reviewed_or_blocked(tmp_pat
     assert result["risk_level"] in {"警告", "违规"}
     assert result["violation_category"] == "引流"
     assert result["disposal_suggestion"]["platform_action"] in {"fold", "manual_review", "block", "delete"}
+
+
+def test_real_world_gambling_ad_is_classified_as_illegal_ad(tmp_path, monkeypatch):
+    text = "累积500返388，每天包赢几百，100送100，新人有扶持，私信。"
+
+    result = _audit(_client(tmp_path, monkeypatch), text)
+
+    assert result["risk_level"] in {"警告", "违规"}
+    assert result["violation_category"] == "违法广告"
+
+
+def test_real_world_black_market_part_time_ad_is_detected(tmp_path, monkeypatch):
+    text = "宝宝，要了解一下抄小说赚r吗？"
+
+    result = _audit(_client(tmp_path, monkeypatch), text)
+
+    assert result["risk_level"] in {"警告", "违规"}
+    assert result["violation_category"] == "违法广告"

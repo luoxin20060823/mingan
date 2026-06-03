@@ -49,6 +49,26 @@ LOCAL_SEMANTIC_RULES = (
         ),
         "reason": "本地语义兜底：站外联系或进群引流信号组合出现。",
     },
+    {
+        "category": ViolationCategory.ILLEGAL_AD,
+        "risk": RiskLevel.WARNING,
+        "score": 0.72,
+        "signals": (
+            ("包赢", "博彩", "盘口", "娱乐城", "返388", "送100", "下注", "邀请码"),
+            ("私信", "联系", "添加", "领取", "扶持", "开业", "平台", "企鹅", "旺旺"),
+        ),
+        "reason": "本地语义兜底：博彩返利、邀请码或平台推广信号组合出现。",
+    },
+    {
+        "category": ViolationCategory.ILLEGAL_AD,
+        "risk": RiskLevel.WARNING,
+        "score": 0.68,
+        "signals": (
+            ("抄小说", "发图文", "小红书", "发布员", "代发", "兼职"),
+            ("赚r", "赚钱", "一单一结", "现结", "感兴趣", "了解一下", "吗"),
+        ),
+        "reason": "本地语义兜底：黑产任务、代发或异常兼职广告信号组合出现。",
+    },
 )
 
 
@@ -96,8 +116,11 @@ class L3SemanticEngine:
         if not self.settings.deepseek_api_key:
             return self._local_fallback_result(text, start)
         try:
+            local_result = self._local_fallback_result(text, start)
             data = await self._request(text)
             risk, category, score, reason = self._parse_response_data(data)
+            if risk == RiskLevel.COMPLIANT and local_result.risk_level in {RiskLevel.WARNING, RiskLevel.VIOLATION}:
+                return local_result
             hits: list[HitDetail] = []
             if risk != RiskLevel.COMPLIANT:
                 hits.append(

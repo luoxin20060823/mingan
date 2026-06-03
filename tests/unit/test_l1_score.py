@@ -95,3 +95,10 @@ def test_l1_ignores_common_benign_seed_terms_without_risk_context():
 
     assert result.score == 0.0
     assert result.hits == []
+
+
+def test_l1_reclassifies_common_insults_from_noisy_lexicon_as_abuse():
+    result = L1RuleEngine([Word("无耻", "色情", "违规")]).scan("这种男人又无耻又恶心")
+
+    assert result.hits[0].category == ViolationCategory.ABUSE
+    assert result.hits[0].level == RiskLevel.HINT

@@ -7,6 +7,8 @@ __pycache__/
 .hypothesis/
 .benchmarks/
 .tmp-sensitive-lexicon/
+.tmp-real-datasets/
+.tmp-real-eval/
 .mypy_cache/
 .ruff_cache/
 

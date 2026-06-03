@@ -39,6 +39,39 @@ async def test_l3_local_semantic_fallback_detects_minor_safety_context_without_a
 
 
 @pytest.mark.asyncio
+async def test_l3_local_semantic_fallback_detects_gambling_ad_context_without_api_key():
+    result = await L3SemanticEngine(Settings(deepseek_api_key="")).classify(
+        "累积500返388，每天包赢几百，100送100，新人有扶持，私信。"
+    )
+
+    assert result.error is None
+    assert result.risk_level == RiskLevel.WARNING
+    assert result.category == ViolationCategory.ILLEGAL_AD
+    assert result.hits[0].engine == "local_semantic"
+
+
+@pytest.mark.asyncio
+async def test_l3_local_semantic_fallback_detects_black_market_task_ad_without_api_key():
+    result = await L3SemanticEngine(Settings(deepseek_api_key="")).classify("宝宝，要了解一下抄小说赚r吗？")
+
+    assert result.error is None
+    assert result.risk_level == RiskLevel.WARNING
+    assert result.category == ViolationCategory.ILLEGAL_AD
+    assert result.hits[0].engine == "local_semantic"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text", ["小红书发图文感兴趣吗？", "抄小说要了解一下吗？"])
+async def test_l3_local_semantic_fallback_detects_short_black_market_task_ads(text):
+    result = await L3SemanticEngine(Settings(deepseek_api_key="")).classify(text)
+
+    assert result.error is None
+    assert result.risk_level == RiskLevel.WARNING
+    assert result.category == ViolationCategory.ILLEGAL_AD
+    assert result.hits[0].engine == "local_semantic"
+
+
+@pytest.mark.asyncio
 async def test_l3_local_semantic_fallback_keeps_anti_fraud_education_compliant():
     result = await L3SemanticEngine(Settings(deepseek_api_key="")).classify(
         "反诈课堂提醒：不要相信刷单返利，也不要向陌生人提供验证码。"
@@ -117,6 +150,18 @@ async def test_l3_compliant_response_has_no_hits_and_empty_category():
     assert result.category is None
     assert result.score == 0.02
     assert result.hits == []
+
+
+@pytest.mark.asyncio
+async def test_l3_local_fallback_overrides_llm_compliant_for_known_black_market_ad():
+    client = DummyClient('{"risk_level":"合规","category":"","reason":"正常交流","score":0.01}')
+
+    result = await L3SemanticEngine(Settings(deepseek_api_key="key"), client=client).classify("小红书发图文感兴趣吗？")
+
+    assert result.error is None
+    assert result.risk_level == RiskLevel.WARNING
+    assert result.category == ViolationCategory.ILLEGAL_AD
+    assert result.hits[0].engine == "local_semantic"
 
 
 @pytest.mark.asyncio
