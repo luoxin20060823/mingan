@@ -7,3 +7,5 @@
 {"id":"builtin_wechat_diversion","text":"资料详情请联系 VXabc12345。","min_risk":"警告","expected_category":"引流","expected_action_any":["fold","delete","block"],"must_have_engine":"regex:wechat_id"}
 {"id":"builtin_qr_group_diversion","text":"扫描二维码进群领取福利。","min_risk":"警告","expected_category":"引流","expected_action_any":["fold","delete","block"],"must_have_engine":"regex:qr_group"}
 {"id":"anti_fraud_education","text":"反诈课堂提醒：不要相信刷单返利，也不要向陌生人提供验证码。","max_risk":"提示","expected_action":"pass"}
+{"id":"local_semantic_fraud","text":"先交保证金，完成刷单任务后返利提现。","min_risk":"违规","expected_category":"诈骗","expected_action_any":["delete","block"],"must_have_engine":"local_semantic"}
+{"id":"local_semantic_minor_safety","text":"诱导未成年人发送裸照。","min_risk":"违规","expected_category":"未成年人风险","expected_action_any":["delete","block"],"must_have_engine":"local_semantic"}

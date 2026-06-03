@@ -6,12 +6,48 @@ from audit.settings import Settings
 
 
 @pytest.mark.asyncio
-async def test_l3_missing_api_key_returns_error_payload():
+async def test_l3_missing_api_key_uses_local_semantic_fallback_for_plain_text():
     result = await L3SemanticEngine(Settings(deepseek_api_key="")).classify("普通文本")
     assert result.score == 0.0
-    assert result.error == "missing_api_key"
-    assert result.explanation.startswith("L3 错误")
-    assert "l3_error" in result.hits[0].flags
+    assert result.error is None
+    assert result.risk_level == RiskLevel.COMPLIANT
+    assert result.category is None
+    assert result.hits == []
+    assert "本地语义" in result.explanation
+
+
+@pytest.mark.asyncio
+async def test_l3_local_semantic_fallback_detects_fraud_context_without_api_key():
+    result = await L3SemanticEngine(Settings(deepseek_api_key="")).classify("先交保证金，完成刷单后返利提现")
+
+    assert result.error is None
+    assert result.risk_level == RiskLevel.VIOLATION
+    assert result.category == ViolationCategory.FRAUD
+    assert result.score >= 0.85
+    assert result.hits[0].engine == "local_semantic"
+    assert "local_fallback" in result.hits[0].flags
+
+
+@pytest.mark.asyncio
+async def test_l3_local_semantic_fallback_detects_minor_safety_context_without_api_key():
+    result = await L3SemanticEngine(Settings(deepseek_api_key="")).classify("诱导未成年人发送裸照")
+
+    assert result.error is None
+    assert result.risk_level == RiskLevel.VIOLATION
+    assert result.category == ViolationCategory.MINOR_SAFETY
+    assert result.hits[0].engine == "local_semantic"
+
+
+@pytest.mark.asyncio
+async def test_l3_local_semantic_fallback_keeps_anti_fraud_education_compliant():
+    result = await L3SemanticEngine(Settings(deepseek_api_key="")).classify(
+        "反诈课堂提醒：不要相信刷单返利，也不要向陌生人提供验证码。"
+    )
+
+    assert result.error is None
+    assert result.risk_level == RiskLevel.COMPLIANT
+    assert result.category is None
+    assert result.hits == []
 
 
 class DummyResponse:

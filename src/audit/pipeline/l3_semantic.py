@@ -16,6 +16,41 @@ SYSTEM_PROMPT = """你是中文内容安全审核员，负责补充规则引擎�
 请按通用内容平台审核逻辑判断整段文本，不要因为单个普通词语就判违规。
 只输出 JSON，不要输出 Markdown、解释性前缀或多余文本。"""
 
+PROTECTIVE_CONTEXT = ("反诈", "提醒", "不要相信", "不要提供", "警惕", "防范", "举报", "案例分析", "科普")
+
+LOCAL_SEMANTIC_RULES = (
+    {
+        "category": ViolationCategory.MINOR_SAFETY,
+        "risk": RiskLevel.VIOLATION,
+        "score": 0.92,
+        "signals": (
+            ("未成年", "未成年人", "未满", "幼女", "儿童", "学生妹", "萝莉"),
+            ("裸照", "裸聊", "开房", "性", "诱导", "私密照", "约炮"),
+        ),
+        "reason": "本地语义兜底：未成年人相关词与性/诱导风险同现。",
+    },
+    {
+        "category": ViolationCategory.FRAUD,
+        "risk": RiskLevel.VIOLATION,
+        "score": 0.88,
+        "signals": (
+            ("刷单", "返利", "提现", "保证金", "垫付", "稳赚", "包赔", "验证码", "银行卡"),
+            ("先交", "转账", "缴纳", "付款", "返现", "任务", "客服", "群"),
+        ),
+        "reason": "本地语义兜底：资金/返利/验证码等诈骗信号组合出现。",
+    },
+    {
+        "category": ViolationCategory.TRAFFIC_DIVERSION,
+        "risk": RiskLevel.WARNING,
+        "score": 0.62,
+        "signals": (
+            ("私聊", "加微信", "加v", "加V", "二维码", "进群", "电报", "Telegram", "tg", "TG"),
+            ("联系", "领取", "福利", "资料", "详情", "咨询", "交易"),
+        ),
+        "reason": "本地语义兜底：站外联系或进群引流信号组合出现。",
+    },
+)
+
 
 def build_l3_messages(text: str) -> list[dict[str, str]]:
     risk_levels = "、".join(ALLOWED_RISK_LEVELS)
@@ -59,7 +94,7 @@ class L3SemanticEngine:
     async def classify(self, text: str) -> L3Result:
         start = time.perf_counter()
         if not self.settings.deepseek_api_key:
-            return self._error_result(text, start, "missing_api_key")
+            return self._local_fallback_result(text, start)
         try:
             data = await self._request(text)
             risk, category, score, reason = self._parse_response_data(data)
@@ -143,6 +178,53 @@ class L3SemanticEngine:
             elapsed_ms=self._elapsed(start),
         )
 
+    def _local_fallback_result(self, text: str, start: float) -> L3Result:
+        normalized = text.casefold()
+        if _has_protective_context(normalized):
+            return L3Result(
+                score=0.0,
+                hits=[],
+                risk_level=RiskLevel.COMPLIANT,
+                category=None,
+                explanation="本地语义兜底：检测到反诈、提醒或科普语境，未触发语义风险。",
+                elapsed_ms=self._elapsed(start),
+            )
+
+        for rule in LOCAL_SEMANTIC_RULES:
+            matched = _matched_signal_groups(normalized, rule["signals"])
+            if len(matched) != len(rule["signals"]):
+                continue
+            category = rule["category"]
+            risk = rule["risk"]
+            hit = HitDetail(
+                layer="L3",
+                engine="local_semantic",
+                matched_word=",".join(matched)[:50],
+                original_fragment=text[:200],
+                start=0,
+                end=min(len(text), 200),
+                category=category,
+                level=risk,
+                flags=["local_fallback"],
+            )
+            return L3Result(
+                score=rule["score"],
+                hits=[hit],
+                risk_level=risk,
+                category=category,
+                explanation=rule["reason"],
+                elapsed_ms=self._elapsed(start),
+            )
+
+        return L3Result(
+            score=0.0,
+            hits=[],
+            risk_level=RiskLevel.COMPLIANT,
+            category=None,
+            explanation="本地语义兜底：未发现明确语义风险。",
+            elapsed_ms=self._elapsed(start),
+        )
+
     @staticmethod
     def _elapsed(start: float) -> int:
         return max(0, int((time.perf_counter() - start) * 1000))
@@ -172,3 +254,16 @@ def _parse_score(value: object) -> float:
         return max(0.0, min(1.0, float(value)))
     except (TypeError, ValueError) as exc:
         raise ValueError(f"invalid score: {value}") from exc
+
+
+def _has_protective_context(text: str) -> bool:
+    return any(token.casefold() in text for token in PROTECTIVE_CONTEXT)
+
+
+def _matched_signal_groups(text: str, groups: tuple[tuple[str, ...], ...]) -> list[str]:
+    matched: list[str] = []
+    for group in groups:
+        token = next((candidate for candidate in group if candidate.casefold() in text), "")
+        if token:
+            matched.append(token)
+    return matched

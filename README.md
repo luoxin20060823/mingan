@@ -55,7 +55,7 @@ SQLITE_PATH=./data/audit.db
 
 说明：
 
-- `DEEPSEEK_API_KEY` 为空时，L3 会降级为错误结果，但 L1/L2/L4 仍可正常工作
+- `DEEPSEEK_API_KEY` 为空时，L3 会启用本地语义兜底；L1/L2/L4 仍可正常工作
 - `SQLITE_PATH` 可改成其他数据库文件路径
 
 ## 使用说明
@@ -253,7 +253,7 @@ uvicorn audit.main:app --host 127.0.0.1 --port 8001
 
 ### 没有 DeepSeek Key 能不能跑
 
-可以。系统会自动降级，L1/L2/L4 继续可用。
+可以。系统会启用本地语义兜底，识别部分诈骗、引流和未成年人风险的上下文组合。外部 LLM 可用时仍优先使用 LLM。
 
 ### 想重置数据库
 
