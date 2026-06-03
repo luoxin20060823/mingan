@@ -37,5 +37,11 @@ def test_static_console_contains_expected_workflow_controls():
         "人工复核",
         "拦截",
         "删除",
+        "上一页",
+        "下一页",
+        "historyPageLabel",
+        "wordPageLabel",
+        "changeHistoryPage",
+        "changeWordPage",
     ):
         assert text in html

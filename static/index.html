@@ -110,6 +110,13 @@
           </li>
         </template>
       </ul>
+      <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+        <span class="text-slate-500" x-text="historyPageLabel()"></span>
+        <div class="flex gap-2">
+          <button class="rounded border px-3 py-1 disabled:opacity-40" :disabled="history.page <= 1" @click="changeHistoryPage(-1)">上一页</button>
+          <button class="rounded border px-3 py-1 disabled:opacity-40" :disabled="history.page * history.page_size >= history.total" @click="changeHistoryPage(1)">下一页</button>
+        </div>
+      </div>
     </section>
 
     <section x-show="currentTab === 'words'" class="space-y-4" x-init="loadWords()">
@@ -133,6 +140,13 @@
           </template>
         </tbody>
       </table>
+      <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+        <span class="text-slate-500" x-text="wordPageLabel()"></span>
+        <div class="flex gap-2">
+          <button class="rounded border px-3 py-1 disabled:opacity-40" :disabled="words.page <= 1" @click="changeWordPage(-1)">上一页</button>
+          <button class="rounded border px-3 py-1 disabled:opacity-40" :disabled="words.page * words.page_size >= words.total" @click="changeWordPage(1)">下一页</button>
+        </div>
+      </div>
     </section>
 
     <section x-show="currentTab === 'rules'" class="space-y-4" x-init="loadRules()">
@@ -204,7 +218,7 @@
         tabs: [{id:'single', label:'单条审核'}, {id:'batch', label:'批量审核'}, {id:'history', label:'历史记录'}, {id:'words', label:'敏感词管理'}, {id:'rules', label:'规则管理'}, {id:'policy', label:'策略配置'}],
         currentTab: 'single', loading: false, error: '',
         singleText: '', singleResult: null, batchText: '', batchResults: [], selectedResult: null,
-        history: {total: 0, items: []}, words: {total: 0, items: []}, rules: {total: 0, items: []},
+        history: {total: 0, page: 1, page_size: 20, items: []}, words: {total: 0, page: 1, page_size: 50, items: []}, rules: {total: 0, items: []},
         categories: ['涉政','暴恐','色情','辱骂','违法广告','诈骗','引流','未成年人风险','低俗','其他'], risks: ['合规','提示','警告','违规'],
         wordForm: {word: '', category: '其他', level: '违规'},
         ruleForm: {name: '', pattern: '', category: '引流', level: '警告', enabled: true},
@@ -256,11 +270,11 @@
           try { const data = await this.api('/audit/batch', {method:'POST', body: JSON.stringify({texts})}); this.batchResults = data.results.map((result, i) => ({text: texts[i], result})); }
           catch(e) { this.error = e.message; } finally { this.loading = false; }
         },
-        async loadHistory() {
+        async loadHistory(page = this.history.page || 1) {
           this.error = '';
           if (this.historyFilters.start_time && this.historyFilters.end_time && this.historyFilters.start_time > this.historyFilters.end_time) { this.error = '时间区间非法'; return; }
           if (this.historyFilters.start_time && this.historyFilters.end_time && new Date(this.historyFilters.end_time) - new Date(this.historyFilters.start_time) > 90 * 24 * 60 * 60 * 1000) { this.error = '时间区间不能超过 90 天'; return; }
-          const q = new URLSearchParams();
+          const q = new URLSearchParams({page: String(page), page_size: String(this.history.page_size || 20)});
           if (this.historyFilters.start_time) q.set('start_time', new Date(this.historyFilters.start_time).toISOString());
           if (this.historyFilters.end_time) q.set('end_time', new Date(this.historyFilters.end_time).toISOString());
           if (this.historyFilters.risk_level) q.set('risk_level', this.historyFilters.risk_level);
@@ -274,14 +288,18 @@
           this.historyFilters.start_time = format(start);
           this.historyFilters.end_time = format(end);
         },
-        clearHistoryFilters() { this.historyFilters = {risk_level: '', category: '', start_time: '', end_time: ''}; this.loadHistory(); },
-        async loadWords() {
-          const q = new URLSearchParams({page_size: '50'});
+        clearHistoryFilters() { this.historyFilters = {risk_level: '', category: '', start_time: '', end_time: ''}; this.loadHistory(1); },
+        changeHistoryPage(delta) { const next = Math.max(1, (this.history.page || 1) + delta); if ((next - 1) * this.history.page_size < this.history.total) this.loadHistory(next); },
+        historyPageLabel() { return `第 ${this.history.page || 1} 页 / 共 ${this.history.total || 0} 条`; },
+        async loadWords(page = this.words.page || 1) {
+          const q = new URLSearchParams({page: String(page), page_size: String(this.words.page_size || 50)});
           if (this.wordFilters.category) q.set('category', this.wordFilters.category);
           if (this.wordFilters.level) q.set('level', this.wordFilters.level);
           try { this.words = await this.api('/words?' + q.toString()); } catch(e) { this.error = e.message; }
         },
-        clearWordFilters() { this.wordFilters = {category: '', level: ''}; this.loadWords(); },
+        clearWordFilters() { this.wordFilters = {category: '', level: ''}; this.loadWords(1); },
+        changeWordPage(delta) { const next = Math.max(1, (this.words.page || 1) + delta); if ((next - 1) * this.words.page_size < this.words.total) this.loadWords(next); },
+        wordPageLabel() { return `第 ${this.words.page || 1} 页 / 共 ${this.words.total || 0} 条`; },
         async createWord() {
           this.error = '';
           if (!this.wordForm.word.trim() || this.wordForm.word.length > 64) { this.error = '词条长度需为 1-64 字'; return; }
