@@ -1,6 +1,6 @@
 # Content Audit Platform
 
-中文内容审核平台，基于 FastAPI + SQLite，提供单条审核、批量审核、历史查询和敏感词管理的静态控制台。内置词库可由公开真实中文敏感词库转换生成，不依赖手写演示词。
+中文内容审核平台，基于 FastAPI + SQLite，提供单条审核、批量审核、历史查询、敏感词管理、规则管理和策略配置的静态控制台。内置词库可由公开真实中文敏感词库转换生成，不依赖手写演示词。
 
 ## 如何运行
 
@@ -19,7 +19,7 @@ python -m pip install -e .[dev]
 ### 3. 启动服务
 
 ```bash
-uvicorn audit.main:app --host 127.0.0.1 --port 8000
+python -m uvicorn audit.main:app --reload --reload-dir src --reload-dir static --reload-dir seeds --host 127.0.0.1 --port 8000
 ```
 
 启动后浏览器打开：
@@ -62,12 +62,14 @@ SQLITE_PATH=./data/audit.db
 
 ### 静态控制台
 
-控制台包含四个入口：
+控制台包含六个入口：
 
 - 单条审核
 - 批量审核
 - 历史记录
 - 敏感词管理
+- 规则管理
+- 策略配置
 
 当前风险类别包括：涉政、暴恐、色情、辱骂、违法广告、诈骗、引流、未成年人风险、低俗、其他。
 
@@ -114,17 +116,19 @@ SQLITE_PATH=./data/audit.db
 
 ### 规则管理
 
-后端提供正则规则管理 API：
+控制台和后端 API 都支持正则规则管理：
 
 - `GET /rules`
 - `POST /rules`
 - `DELETE /rules/{rule_id}`
 
-启动时会把 `seeds/regex_rules.yaml` 导入为 `source=builtin` 规则；内置规则不能删除。通过 API 新增的 `source=custom` 规则会立即参与后续审核。
+启动时会把 `seeds/regex_rules.yaml` 导入为 `source=builtin` 规则；内置规则不能删除。通过控制台或 API 新增的 `source=custom` 规则会立即参与后续审核。
+
+默认内置规则覆盖手机号、URL、QQ、微信/VX、二维码进群和 Telegram/TG 等模式型风险。其中微信、二维码进群和 Telegram/TG 默认归为 `引流`。
 
 ### 策略配置
 
-后端提供策略配置 API：
+控制台和后端 API 都支持策略配置：
 
 - `GET /policy`
 - `PUT /policy`
@@ -211,7 +215,7 @@ curl -X DELETE "http://127.0.0.1:8000/words/123"
 ```bash
 curl -X POST "http://127.0.0.1:8000/rules" ^
   -H "Content-Type: application/json" ^
-  -d "{\"name\":\"wechat_id\",\"pattern\":\"VX[:：]?[A-Za-z0-9_]{5,}\",\"category\":\"引流\",\"level\":\"警告\"}"
+  -d "{\"name\":\"invite_code\",\"pattern\":\"邀请码[:：]?[A-Z0-9]{6}\",\"category\":\"引流\",\"level\":\"警告\"}"
 ```
 
 ### 更新策略配置
@@ -235,7 +239,7 @@ python -m compileall -q src/audit
 tests/fixtures/moderation_cases.jsonl
 ```
 
-样例覆盖正常文本、误伤文本、诈骗、引流、未成年人风险、符号变体和同音变体。每次策略调整后都应运行完整测试，避免审核能力退化。
+样例覆盖正常文本、误伤文本、诈骗、引流、未成年人风险、符号变体、同音变体、默认联系方式规则和反诈教育文本。每次策略调整后都应运行完整测试，避免审核能力退化。
 
 ## 常见问题
 
