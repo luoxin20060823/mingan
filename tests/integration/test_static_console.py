@@ -30,5 +30,12 @@ def test_static_console_contains_expected_workflow_controls():
         "90 * 24 * 60 * 60 * 1000",
         "formatApiError",
         "payload.error.message",
+        "actionLabel",
+        "放行",
+        "提示",
+        "折叠",
+        "人工复核",
+        "拦截",
+        "删除",
     ):
         assert text in html
