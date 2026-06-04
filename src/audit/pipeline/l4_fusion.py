@@ -18,6 +18,13 @@ SPECIFIC_CATEGORY_PRIORITY = {
     "": -1,
 }
 
+CONTEXTUAL_WARNING_CATEGORIES = {
+    ViolationCategory.OTHER,
+    ViolationCategory.POLITICS,
+    ViolationCategory.ABUSE,
+    ViolationCategory.VULGAR,
+}
+
 
 def fuse(l1: LayerResult, l2: LayerResult, l3: L3Result, policy: PolicySettings | None = None) -> FinalDecision:
     policy = policy or PolicySettings()
@@ -80,6 +87,13 @@ def _adjust_l1_score(l1: LayerResult, l3: L3Result) -> float:
     if not l1.hits:
         return l1.score
     if all(hit.level != RiskLevel.VIOLATION and "low_confidence_generic" in hit.flags for hit in l1.hits):
+        return min(l1.score, 0.2)
+    if all(
+        hit.level != RiskLevel.VIOLATION
+        and hit.category in CONTEXTUAL_WARNING_CATEGORIES
+        and "custom_word" not in hit.flags
+        for hit in l1.hits
+    ):
         return min(l1.score, 0.2)
     return l1.score
 

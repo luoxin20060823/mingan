@@ -72,6 +72,29 @@ async def test_l3_local_semantic_fallback_detects_short_black_market_task_ads(te
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "text",
+    [
+        "金花牛牛玩吗",
+        "手机金花牛牛小游戏玩的来",
+        "接dy发评论吗？",
+        "ks评论长期稳定要做吗",
+        "炒小说做吗？一周一结。",
+        "抄小说有兴趣吗",
+        "抄小说吗？",
+        "宝子，小红书发文，内容我们提供。考虑一下呢？",
+    ],
+)
+async def test_l3_local_semantic_fallback_detects_more_short_ads(text):
+    result = await L3SemanticEngine(Settings(deepseek_api_key="")).classify(text)
+
+    assert result.error is None
+    assert result.risk_level == RiskLevel.WARNING
+    assert result.category in {ViolationCategory.ILLEGAL_AD, ViolationCategory.TRAFFIC_DIVERSION}
+    assert result.hits[0].engine == "local_semantic"
+
+
+@pytest.mark.asyncio
 async def test_l3_local_semantic_fallback_keeps_anti_fraud_education_compliant():
     result = await L3SemanticEngine(Settings(deepseek_api_key="")).classify(
         "反诈课堂提醒：不要相信刷单返利，也不要向陌生人提供验证码。"
@@ -157,6 +180,18 @@ async def test_l3_local_fallback_overrides_llm_compliant_for_known_black_market_
     client = DummyClient('{"risk_level":"合规","category":"","reason":"正常交流","score":0.01}')
 
     result = await L3SemanticEngine(Settings(deepseek_api_key="key"), client=client).classify("小红书发图文感兴趣吗？")
+
+    assert result.error is None
+    assert result.risk_level == RiskLevel.WARNING
+    assert result.category == ViolationCategory.ILLEGAL_AD
+    assert result.hits[0].engine == "local_semantic"
+
+
+@pytest.mark.asyncio
+async def test_l3_local_fallback_overrides_llm_hint_for_known_black_market_ad():
+    client = DummyClient('{"risk_level":"提示","category":"其他","reason":"轻微关注","score":0.25}')
+
+    result = await L3SemanticEngine(Settings(deepseek_api_key="key"), client=client).classify("金花牛牛玩吗")
 
     assert result.error is None
     assert result.risk_level == RiskLevel.WARNING

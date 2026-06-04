@@ -11,6 +11,12 @@ from ..settings import Settings
 
 ALLOWED_RISK_LEVELS = tuple(level.value for level in RiskLevel)
 ALLOWED_CATEGORIES = tuple(category.value for category in ViolationCategory)
+RISK_PRIORITY = {
+    RiskLevel.COMPLIANT: 0,
+    RiskLevel.HINT: 1,
+    RiskLevel.WARNING: 2,
+    RiskLevel.VIOLATION: 3,
+}
 
 SYSTEM_PROMPT = """你是中文内容安全审核员，负责补充规则引擎无法稳定识别的语义风险。
 请按通用内容平台审核逻辑判断整段文本，不要因为单个普通词语就判违规。
@@ -54,8 +60,8 @@ LOCAL_SEMANTIC_RULES = (
         "risk": RiskLevel.WARNING,
         "score": 0.72,
         "signals": (
-            ("包赢", "博彩", "盘口", "娱乐城", "返388", "送100", "下注", "邀请码"),
-            ("私信", "联系", "添加", "领取", "扶持", "开业", "平台", "企鹅", "旺旺"),
+            ("包赢", "博彩", "盘口", "娱乐城", "返388", "送100", "下注", "邀请码", "金花", "牛牛", "棋牌", "pg"),
+            ("私信", "联系", "添加", "领取", "扶持", "开业", "平台", "企鹅", "旺旺", "玩", "回血", "游戏"),
         ),
         "reason": "本地语义兜底：博彩返利、邀请码或平台推广信号组合出现。",
     },
@@ -64,10 +70,37 @@ LOCAL_SEMANTIC_RULES = (
         "risk": RiskLevel.WARNING,
         "score": 0.68,
         "signals": (
-            ("抄小说", "发图文", "小红书", "发布员", "代发", "兼职"),
-            ("赚r", "赚钱", "一单一结", "现结", "感兴趣", "了解一下", "吗"),
+            ("抄小说", "炒小说", "超小说", "发图文", "发文", "小红书", "小红薯", "发布员", "代发", "兼职", "dy", "ks", "评论"),
+            (
+                "赚r",
+                "赚钱",
+                "一单一结",
+                "一周一结",
+                "现结",
+                "长期稳定",
+                "感兴趣",
+                "有兴趣",
+                "了解一下",
+                "要做吗",
+                "做吗",
+                "能做吗",
+                "来吗",
+                "考虑一下",
+                "内容我们提供",
+                "接",
+            ),
         ),
         "reason": "本地语义兜底：黑产任务、代发或异常兼职广告信号组合出现。",
+    },
+    {
+        "category": ViolationCategory.ILLEGAL_AD,
+        "risk": RiskLevel.WARNING,
+        "score": 0.66,
+        "signals": (
+            ("抄小说", "炒小说", "超小说"),
+            ("吗", "么", "有兴趣", "感兴趣", "来吗", "做吗", "要做吗"),
+        ),
+        "reason": "本地语义兜底：抄小说类异常兼职短邀约信号出现。",
     },
 )
 
@@ -119,7 +152,7 @@ class L3SemanticEngine:
             local_result = self._local_fallback_result(text, start)
             data = await self._request(text)
             risk, category, score, reason = self._parse_response_data(data)
-            if risk == RiskLevel.COMPLIANT and local_result.risk_level in {RiskLevel.WARNING, RiskLevel.VIOLATION}:
+            if _should_use_local_result(local_result, risk, category):
                 return local_result
             hits: list[HitDetail] = []
             if risk != RiskLevel.COMPLIANT:
@@ -290,3 +323,23 @@ def _matched_signal_groups(text: str, groups: tuple[tuple[str, ...], ...]) -> li
         if token:
             matched.append(token)
     return matched
+
+
+def _should_use_local_result(
+    local_result: L3Result,
+    llm_risk: RiskLevel,
+    llm_category: ViolationCategory | None,
+) -> bool:
+    if local_result.risk_level not in {RiskLevel.WARNING, RiskLevel.VIOLATION}:
+        return False
+    if llm_risk == RiskLevel.COMPLIANT:
+        return True
+    if RISK_PRIORITY[local_result.risk_level] > RISK_PRIORITY[llm_risk]:
+        return True
+    if (
+        llm_category in {None, ViolationCategory.OTHER}
+        and local_result.category not in {None, ViolationCategory.OTHER}
+        and RISK_PRIORITY[local_result.risk_level] >= RISK_PRIORITY[llm_risk]
+    ):
+        return True
+    return False

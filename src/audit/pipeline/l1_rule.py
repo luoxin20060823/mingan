@@ -49,6 +49,8 @@ class L1RuleEngine:
                 start_idx = end_idx - len(word) + 1
                 category = ViolationCategory(normalize_category(word, entry.category))
                 level, flags = adjust_hit_confidence(word, category, RiskLevel(entry.level), text)
+                if getattr(entry, "source", "") == "custom":
+                    flags.append("custom_word")
                 hits.append(
                     HitDetail(
                         layer="L1",

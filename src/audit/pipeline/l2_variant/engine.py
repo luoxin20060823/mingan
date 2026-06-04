@@ -15,6 +15,13 @@ class L2VariantEngine:
         self.words = list(words)
         self.homophones = homophones or {}
         self.glyph_confusables = glyph_confusables or {}
+        self._pinyin_words: list[tuple[object, str, str]] = []
+        for entry in self.words:
+            if len(entry.word) < 2 or not re.search(r"[\u4e00-\u9fff]", entry.word):
+                continue
+            full = "".join(lazy_pinyin(entry.word)).lower()
+            initials = "".join(p[0] for p in lazy_pinyin(entry.word)).lower()
+            self._pinyin_words.append((entry, full, initials))
 
     def scan(self, text: str | None) -> LayerResult:
         start = time.perf_counter()
@@ -81,13 +88,7 @@ class L2VariantEngine:
         compact = "".join(compact_chars)
         mixed_compact = "".join(mixed_parts)
         hits: list[HitDetail] = []
-        for entry in self.words:
-            if len(entry.word) < 2:
-                continue
-            if not re.search(r"[\u4e00-\u9fff]", entry.word):
-                continue
-            full = "".join(lazy_pinyin(entry.word)).lower()
-            initials = "".join(p[0] for p in lazy_pinyin(entry.word)).lower()
+        for entry, full, initials in self._pinyin_words:
             has_plain_word = entry.word in compact
             if len(full) < 4:
                 continue

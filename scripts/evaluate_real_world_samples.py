@@ -171,10 +171,7 @@ def load_swsr(path: Path, per_label: int) -> list[EvalCase]:
     return cases
 
 
-def evaluate_case(client: TestClient, case: EvalCase) -> dict[str, Any]:
-    response = client.post("/audit/text", json={"text": case.text})
-    response.raise_for_status()
-    body = response.json()
+def evaluate_case_body(case: EvalCase, body: dict[str, Any]) -> dict[str, Any]:
     errors: list[str] = []
 
     risk = body["risk_level"]
@@ -212,6 +209,19 @@ def evaluate_case(client: TestClient, case: EvalCase) -> dict[str, Any]:
         "hit_count": len(body["hit_details"]),
         "errors": errors,
     }
+
+
+def evaluate_cases(client: TestClient, cases: list[EvalCase], batch_size: int = 50) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    for start in range(0, len(cases), batch_size):
+        batch = cases[start : start + batch_size]
+        response = client.post("/audit/batch", json={"texts": [case.text for case in batch]})
+        response.raise_for_status()
+        bodies = response.json()["results"]
+        if len(bodies) != len(batch):
+            raise RuntimeError(f"batch result size mismatch: expected {len(batch)}, got {len(bodies)}")
+        results.extend(evaluate_case_body(case, body) for case, body in zip(batch, bodies))
+    return results
 
 
 def _binary_metrics(results: list[dict[str, Any]]) -> dict[str, float | int]:
@@ -352,7 +362,7 @@ def main() -> int:
         raise SystemExit("no dataset cases found")
 
     client = TestClient(create_app())
-    results = [evaluate_case(client, case) for case in cases]
+    results = evaluate_cases(client, cases)
     write_report(results, Path(args.output_dir))
 
     failed = sum(1 for item in results if item["errors"])

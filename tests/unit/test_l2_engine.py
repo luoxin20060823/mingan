@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from time import perf_counter
 
 from audit.pipeline.l2_variant import L2VariantEngine
 
@@ -107,3 +108,15 @@ def test_l2_does_not_match_pinyin_inside_technical_identifiers():
 
     assert result.score == 0.0
     assert result.hits == []
+
+
+def test_l2_scales_reasonably_with_many_words():
+    words = [Word(f"坏词{i}", "其他", "违规") for i in range(2000)] + [Word("坏词", "其他", "违规")]
+    engine = L2VariantEngine(words)
+
+    started = perf_counter()
+    result = engine.scan(("正常内容" * 120) + "huai ci")
+    elapsed_ms = (perf_counter() - started) * 1000
+
+    assert result.score == 0.9
+    assert elapsed_ms < 1200
