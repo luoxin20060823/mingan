@@ -1,135 +1,135 @@
-# Real-World Evaluation Report
+# 真实样本评测报告
 
-This report evaluates the current moderation system on sampled public benchmark data. It is a repeatable engineering evaluation, not a claim of production-grade model quality across all content domains.
+本文档记录当前内容安全审核系统在公开真实样本数据集上的测试结果。它的定位是可复现的工程评测报告，用于发现问题、跟踪优化效果，并不等同于生产级模型能力声明。
 
-## Data Sources
+## 数据来源
 
-The evaluation uses three public, research-oriented datasets:
+本次评测使用了 3 个公开研究数据集：
 
-- **COLDataset**: Chinese offensive language dataset from THU COAI. Repository: <https://github.com/thu-coai/COLDataset>
-- **ChineseHarm-Bench**: Chinese harmful content benchmark covering non-violation, vulgar/sexual content, gambling, fraud, flame/abuse, and black-market ads. Dataset page: <https://huggingface.co/datasets/zjunlp/ChineseHarm-bench>
-- **SWSR**: Sina Weibo Sexism Review dataset for Chinese online sexism detection. Repository: <https://github.com/aggiejiang/SWSR>
+- **COLDataset**：由 THU COAI 发布的中文攻击性语言数据集，用于测试攻击性评论与正常评论识别能力。仓库地址：<https://github.com/thu-coai/COLDataset>
+- **ChineseHarm-Bench**：中文有害内容检测基准，覆盖不违规、低俗色情、博彩、欺诈、谩骂引战、黑产广告等类型。数据集地址：<https://huggingface.co/datasets/zjunlp/ChineseHarm-bench>
+- **SWSR**：新浪微博性别歧视评论数据集，用于测试中文网络性别歧视识别能力。仓库地址：<https://github.com/aggiejiang/SWSR>
 
-Downloaded files are kept under `.tmp-real-datasets/`, which is ignored by Git.
+下载后的数据文件放在 `.tmp-real-datasets/` 目录下，该目录已被 Git 忽略。
 
-## Label Mapping
+## 标签映射规则
 
-The system is a general content safety auditor, while the datasets use specialized labels. The evaluation maps labels as follows:
+本系统是通用内容安全审核系统，而上述数据集的标签各有侧重。因此评测时做了如下映射：
 
-- COLDataset offensive -> harmful; acceptable categories: `辱骂` or `其他`
-- COLDataset non-offensive -> safe; expected max risk: `提示`
-- ChineseHarm-Bench non-violation -> safe
-- ChineseHarm-Bench low/vulgar/sexual -> harmful; acceptable categories: `低俗` or `色情`
-- ChineseHarm-Bench gambling/fraud/black-market ads -> harmful; acceptable categories: `违法广告`, `诈骗`, or `引流`
-- ChineseHarm-Bench flame/abuse -> harmful; acceptable categories: `辱骂` or `其他`
-- SWSR sexist -> harmful; acceptable categories: `辱骂`, `其他`, `低俗`, or `色情`
-- SWSR non-sexist -> safe
+- COLDataset 攻击性评论 -> 有害内容，可接受分类：`辱骂` 或 `其他`
+- COLDataset 非攻击性评论 -> 安全内容，最高风险不应超过 `提示`
+- ChineseHarm-Bench 不违规 -> 安全内容
+- ChineseHarm-Bench 低俗色情 -> 有害内容，可接受分类：`低俗` 或 `色情`
+- ChineseHarm-Bench 博彩、欺诈、黑产广告 -> 有害内容，可接受分类：`违法广告`、`诈骗` 或 `引流`
+- ChineseHarm-Bench 谩骂引战 -> 有害内容，可接受分类：`辱骂` 或 `其他`
+- SWSR 性别歧视 -> 有害内容，可接受分类：`辱骂`、`其他`、`低俗` 或 `色情`
+- SWSR 非性别歧视 -> 安全内容
 
-For binary harmful detection, `警告` and `违规` are counted as harmful predictions; `合规` and `提示` are counted as safe or low-risk predictions.
+二分类指标中，`警告` 和 `违规` 计为有害预测；`合规` 和 `提示` 计为安全或低风险预测。
 
-## Main Error Causes
+## 主要错误原因
 
-The latest failure review found these dominant causes:
+本轮失败样本复核发现，错误主要来自以下几类：
 
-- **Contextual false positives**: safe social, legal, gender, race, or marketing discussion can contain sensitive tokens and be over-classified by keyword or variant layers.
-- **L3/local fallback precedence bug**: when the external semantic model returned weak `提示/其他` results for short gambling or black-market ads, the stronger local semantic fallback was not allowed to override it.
-- **Short-form ads and slang**: phrases such as `金花牛牛玩吗`, `dy评论`, `小红书发文`, and `抄小说吗` need grouped intent signals, not isolated keywords.
-- **Implicit abuse and sexism**: coded insults, sarcasm, regional/gender stereotypes, and SWSR microaggressions require a dedicated semantic classifier or stronger LLM rubric.
-- **Category drift**: mixed sexual/abusive/political samples are often detected but assigned to neighboring categories, such as `涉政`, `色情`, or `违法广告`.
-- **Batch evaluation performance**: the old evaluator called `/audit/text` one case at a time, rebuilding the orchestrator and variant engine repeatedly. This made large benchmark runs impractically slow.
+- **上下文误判**：一些正常的社会、法律、性别、族群、营销讨论会包含敏感词，规则层或变体层容易将其过度判定。
+- **L3 本地兜底优先级不足**：外部语义模型曾将部分短博彩、黑产广告判成较弱的 `提示/其他`，导致更明确的本地语义兜底没有机会覆盖。
+- **短广告和黑话样本不足**：如 `金花牛牛玩吗`、`dy评论`、`小红书发文`、`抄小说吗` 等短句，需要组合意图信号判断，不能只依赖单个关键词。
+- **隐晦辱骂和性别歧视识别弱**：谐音、暗讽、地域/性别刻板印象、SWSR 中的微歧视样本，需要更强的语义分类能力。
+- **分类漂移**：一些混合了色情、辱骂、涉政或广告信号的样本虽然被识别为风险内容，但容易落到相邻分类，例如 `涉政`、`色情` 或 `违法广告`。
+- **批量评测性能问题**：旧评测脚本逐条调用 `/audit/text`，每条样本都会重复创建审核器和变体引擎，导致大样本评测非常慢。
 
-## Optimizations Performed
+## 本轮优化内容
 
-This round made four targeted changes:
+本轮做了 4 类针对性优化：
 
-- **Contextual warning reduction**: when L3 is compliant, non-specific L1/L2 warning hits in contextual categories are capped to low risk, while custom words and explicit high-risk categories remain enforceable.
-- **Local semantic fallback precedence**: known local high-confidence warning/violation patterns now override LLM `合规` or weaker generic `提示/其他` responses.
-- **Short ad/slang recall**: local semantic rules now cover additional gambling and black-market task-ad patterns, including `金花/牛牛/棋牌/回血`, `dy/ks评论`, `小红书/小红薯发文`, and `抄/炒/超小说`.
-- **Evaluation/runtime performance**: L2 pinyin variants are precomputed at engine initialization, and the real-world evaluator now uses `/audit/batch` to reuse one orchestrator per batch.
+- **上下文告警降权**：当 L3 判定内容整体合规时，L1/L2 中非特异性的上下文类告警会被压低风险；但自定义词和明确高风险类别仍保留原有处置能力。
+- **本地语义兜底优先级修正**：对于本地规则已明确识别的高置信风险，当 LLM 返回 `合规` 或较弱的 `提示/其他` 时，系统会采用本地结果。
+- **短广告/黑话召回增强**：新增或扩展了博彩与黑产任务广告模式，包括 `金花/牛牛/棋牌/回血`、`dy/ks评论`、`小红书/小红薯发文`、`抄/炒/超小说` 等。
+- **评测与运行性能优化**：L2 拼音变体在引擎初始化时预计算；真实样本评测脚本改用 `/audit/batch`，每批复用一个审核器。
 
-The fixes intentionally avoid broad keyword-only escalation for ambiguous coded insults, because that would raise false positives on normal discussion.
+这些优化刻意避免对所有隐晦词做粗暴关键词升级，因为那会明显增加正常讨论的误判风险。
 
-## Baseline: 140-Case Evaluation
+## 基线评测：140 个样本
 
-Command:
+命令：
 
 ```powershell
 python scripts/evaluate_real_world_samples.py --cold-per-label 20 --harm-per-category 10 --swsr-per-label 20 --output-dir .tmp-real-eval/baseline-140
 ```
 
-Metrics:
+指标：
 
-| Metric | Value |
+| 指标 | 数值 |
 | --- | ---: |
-| Total | 140 |
-| Passed | 88 |
-| Failed | 52 |
-| Accuracy | 0.6643 |
-| Precision | 0.7416 |
-| Recall | 0.7333 |
+| 样本总数 | 140 |
+| 通过样本 | 88 |
+| 失败样本 | 52 |
+| 准确率 Accuracy | 0.6643 |
+| 精确率 Precision | 0.7416 |
+| 召回率 Recall | 0.7333 |
 | F1 | 0.7374 |
-| Specificity | 0.5400 |
+| 特异度 Specificity | 0.5400 |
 | TP | 66 |
 | TN | 27 |
 | FP | 23 |
 | FN | 24 |
 
-Category mapping accuracy: `60 / 90 = 0.6667`.
+分类映射准确率：`60 / 90 = 0.6667`。
 
-## Online Comparable Run Before Final Local Fix: 280 Cases
+## 最终本地修复前的线上可比评测：280 个样本
 
-This earlier run used the configured semantic layer and is kept as historical context.
+这次历史评测使用当时配置的语义层，保留为对照参考。
 
 ```powershell
 python scripts/evaluate_real_world_samples.py --cold-per-label 40 --harm-per-category 20 --swsr-per-label 40 --output-dir .tmp-real-eval/expanded-280-final
 ```
 
-| Metric | Value |
+| 指标 | 数值 |
 | --- | ---: |
-| Total | 280 |
-| Passed | 196 |
-| Failed | 84 |
-| Accuracy | 0.6714 |
-| Precision | 0.8729 |
-| Recall | 0.5722 |
+| 样本总数 | 280 |
+| 通过样本 | 196 |
+| 失败样本 | 84 |
+| 准确率 Accuracy | 0.6714 |
+| 精确率 Precision | 0.8729 |
+| 召回率 Recall | 0.5722 |
 | F1 | 0.6913 |
-| Specificity | 0.8500 |
+| 特异度 Specificity | 0.8500 |
 | TP | 103 |
 | TN | 85 |
 | FP | 15 |
 | FN | 77 |
 
-Category mapping accuracy: `115 / 180 = 0.6389`.
+分类映射准确率：`115 / 180 = 0.6389`。
 
-## Latest Comparable Local Run: 280 Cases
+## 最新本地可复现评测：280 个样本
 
-This run explicitly disables the external LLM key for reproducibility and exercises the rule, variant, local semantic, fusion, and disposal layers through the API batch endpoint.
+本次评测显式关闭外部 LLM key，仅使用规则层、变体层、本地语义兜底、融合层和处置层，并通过 API 批量接口完成测试。
 
 ```powershell
 $env:DEEPSEEK_API_KEY=''
 python scripts/evaluate_real_world_samples.py --cold-per-label 40 --harm-per-category 20 --swsr-per-label 40 --output-dir .tmp-real-eval/expanded-280-local-after-fix
 ```
 
-| Metric | Value |
+| 指标 | 数值 |
 | --- | ---: |
-| Total | 280 |
-| Passed | 174 |
-| Failed | 106 |
-| Accuracy | 0.5214 |
-| Precision | 0.8594 |
-| Recall | 0.3056 |
+| 样本总数 | 280 |
+| 通过样本 | 174 |
+| 失败样本 | 106 |
+| 准确率 Accuracy | 0.5214 |
+| 精确率 Precision | 0.8594 |
+| 召回率 Recall | 0.3056 |
 | F1 | 0.4508 |
-| Specificity | 0.9100 |
+| 特异度 Specificity | 0.9100 |
 | TP | 55 |
 | TN | 91 |
 | FP | 9 |
 | FN | 125 |
 
-Category mapping accuracy: `86 / 180 = 0.4778`.
+分类映射准确率：`86 / 180 = 0.4778`。
 
-Notable by-source results:
+分数据源结果：
 
-| Source | Pass Rate | Accuracy | Precision | Recall | F1 |
+| 数据源 | 通过率 | 准确率 | 精确率 | 召回率 | F1 |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | COLDataset | 58/80 | 0.5250 | 1.0000 | 0.0500 | 0.0952 |
 | ChineseHarm-Bench / 不违规 | 19/20 | 0.9500 | 0.0000 | 0.0000 | 0.0000 |
@@ -140,35 +140,35 @@ Notable by-source results:
 | ChineseHarm-Bench / 黑产广告 | 18/20 | 0.9000 | 1.0000 | 0.9000 | 0.9474 |
 | SWSR / SexComment | 49/80 | 0.4625 | 0.3846 | 0.1250 | 0.1887 |
 
-## Expanded Local Run: 420 Cases
+## 扩展本地评测：420 个样本
 
-Command:
+命令：
 
 ```powershell
 $env:DEEPSEEK_API_KEY=''
 python scripts/evaluate_real_world_samples.py --cold-per-label 60 --harm-per-category 30 --swsr-per-label 60 --output-dir .tmp-real-eval/expanded-420-local-after-fix
 ```
 
-| Metric | Value |
+| 指标 | 数值 |
 | --- | ---: |
-| Total | 420 |
-| Passed | 246 |
-| Failed | 174 |
-| Accuracy | 0.4952 |
-| Precision | 0.8295 |
-| Recall | 0.2704 |
+| 样本总数 | 420 |
+| 通过样本 | 246 |
+| 失败样本 | 174 |
+| 准确率 Accuracy | 0.4952 |
+| 精确率 Precision | 0.8295 |
+| 召回率 Recall | 0.2704 |
 | F1 | 0.4078 |
-| Specificity | 0.9000 |
+| 特异度 Specificity | 0.9000 |
 | TP | 73 |
 | TN | 135 |
 | FP | 15 |
 | FN | 197 |
 
-Category mapping accuracy: `115 / 270 = 0.4259`.
+分类映射准确率：`115 / 270 = 0.4259`。
 
-Notable by-source results:
+分数据源结果：
 
-| Source | Pass Rate | Accuracy | Precision | Recall | F1 |
+| 数据源 | 通过率 | 准确率 | 精确率 | 召回率 | F1 |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | COLDataset | 85/120 | 0.5500 | 0.8750 | 0.1167 | 0.2059 |
 | ChineseHarm-Bench / 不违规 | 28/30 | 0.9333 | 0.0000 | 0.0000 | 0.0000 |
@@ -179,20 +179,20 @@ Notable by-source results:
 | ChineseHarm-Bench / 黑产广告 | 19/30 | 0.6333 | 1.0000 | 0.6333 | 0.7755 |
 | SWSR / SexComment | 78/120 | 0.4750 | 0.4286 | 0.1500 | 0.2222 |
 
-## Interpretation
+## 结果解读
 
-The current local-mode system is conservative:
+当前本地模式下的系统整体偏保守：
 
-- False positives are lower after contextual warning protection. Local 420-case specificity is `0.9000`.
-- Black-market ad recall improved on the 280-case comparable run, reaching `18/20` pass rate for ChineseHarm-Bench black-market ads.
-- Overall recall remains weak in local-only mode, especially for implicit abuse, sexism, fraud soft ads, and vulgar/sexual slang.
-- The online semantic layer remains important for generalization. The local fallback should be viewed as a high-precision safety net, not a complete classifier.
+- 上下文告警保护降低了误判，420 样本本地评测中特异度达到 `0.9000`。
+- 黑产广告在 280 个本地可比样本中表现较好，ChineseHarm-Bench 黑产广告通过率达到 `18/20`。
+- 本地模式整体召回率仍偏低，尤其是隐晦辱骂、性别歧视、软诈骗、低俗色情黑话等内容。
+- 在线语义层对泛化能力仍然重要。本地兜底更适合作为高精度安全网，而不是完整替代语义模型。
 
-The most urgent remaining product gap is a dedicated semantic classifier or calibrated LLM rubric for abuse, sexism, and disguised fraud. The current rule/local-fallback approach is useful for high-confidence patterns but cannot reliably understand coded or context-heavy harms.
+后续最需要补强的是专门的语义分类能力，尤其是辱骂、性别歧视和伪装诈骗。如果继续只靠规则和本地兜底，很难稳定理解编码表达、讽刺语境和复杂社会讨论。
 
-## Reproducibility
+## 复现方法
 
-Download datasets:
+下载数据集：
 
 ```powershell
 git clone --depth 1 https://github.com/thu-coai/COLDataset.git .tmp-real-datasets/COLDataset
@@ -200,14 +200,14 @@ git clone --depth 1 https://huggingface.co/datasets/zjunlp/ChineseHarm-bench .tm
 git clone --depth 1 https://github.com/aggiejiang/SWSR.git .tmp-real-datasets/SWSR
 ```
 
-Run the latest expanded local evaluation:
+运行最新扩展本地评测：
 
 ```powershell
 $env:DEEPSEEK_API_KEY=''
 python scripts/evaluate_real_world_samples.py --cold-per-label 60 --harm-per-category 30 --swsr-per-label 60 --output-dir .tmp-real-eval/expanded-420-local-after-fix
 ```
 
-Read generated files:
+查看生成结果：
 
 ```text
 .tmp-real-eval/expanded-420-local-after-fix/real_world_eval_report.md
